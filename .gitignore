@@ -1,4 +1,6 @@
 .gradle
+.claude
+.specify
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
