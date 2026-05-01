@@ -23,6 +23,17 @@ function addCell(id, type, source, outputsHtml, executionCount) {
     header.appendChild(badge);
 
     if (type === 'code') {
+        const runBtn = document.createElement('button');
+        runBtn.className = 'run-btn';
+        runBtn.textContent = '▶';
+        runBtn.title = 'Run cell (Shift+Enter)';
+        runBtn.onclick = function(e) {
+            e.stopPropagation();
+            selectCell(id);
+            if (kotlinBridge) kotlinBridge.runCell(id);
+        };
+        header.appendChild(runBtn);
+
         const execCount = document.createElement('span');
         execCount.className = 'execution-count';
         execCount.id = 'exec-count-' + id;
@@ -230,3 +241,15 @@ function insertCellAfter(afterId, newId, type, source, outputsHtml, executionCou
     }
     tempContainer.remove();
 }
+
+document.addEventListener('keydown', function(e) {
+    if (e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (selectedCellId && kotlinBridge) {
+            const cell = document.getElementById('cell-' + selectedCellId);
+            if (cell && cell.dataset.cellType === 'code') {
+                kotlinBridge.runCell(selectedCellId);
+            }
+        }
+    }
+});

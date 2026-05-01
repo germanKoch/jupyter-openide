@@ -48,6 +48,10 @@ class JupyterNotebookEditor(
                 propertyChangeSupport.firePropertyChange("modified", false, true)
             }
         }
+
+        notebookPanel.onRunCell = { cellId ->
+            executeCell(cellId)
+        }
     }
 
     private fun loadNotebook() {
@@ -97,6 +101,78 @@ class JupyterNotebookEditor(
     }
 
     fun getNotebookPanel(): NotebookPanel = notebookPanel
+
+    fun executeCell(cellId: String) {
+        val km = kernelManager ?: return
+        val cell = notebook?.cells?.find { it.id == cellId } ?: return
+        if (cell.cellType != CellType.CODE) return
+
+        notebookPanel.clearCellOutputs(cell.id)
+        notebookPanel.setCellExecuting(cell.id, true)
+        cell.executionState = CellExecutionState.EXECUTING
+        cell.outputs.clear()
+
+        val msgId = km.sendExecuteRequest(cell.source)
+        km.registerCallback(msgId) { msg ->
+            val msgType = msg.get("msg_type")?.asString ?: return@registerCallback
+            val content = msg.getAsJsonObject("content") ?: return@registerCallback
+
+            SwingUtilities.invokeLater {
+                when (msgType) {
+                    "stream" -> {
+                        val text = content.get("text")?.asString ?: ""
+                        val output = CellOutput(OutputType.STREAM, text = text)
+                        cell.outputs.add(output)
+                        notebookPanel.appendCellOutput(cell.id, output)
+                    }
+                    "execute_result" -> {
+                        val data = parseDataBundle(content.getAsJsonObject("data"))
+                        val output = CellOutput(OutputType.EXECUTE_RESULT, data = data)
+                        cell.outputs.add(output)
+                        notebookPanel.appendCellOutput(cell.id, output)
+                    }
+                    "display_data" -> {
+                        val data = parseDataBundle(content.getAsJsonObject("data"))
+                        val output = CellOutput(OutputType.DISPLAY_DATA, data = data)
+                        cell.outputs.add(output)
+                        notebookPanel.appendCellOutput(cell.id, output)
+                    }
+                    "error" -> {
+                        val output = CellOutput(
+                            OutputType.ERROR,
+                            ename = content.get("ename")?.asString,
+                            evalue = content.get("evalue")?.asString,
+                            traceback = content.getAsJsonArray("traceback")?.map { it.asString }
+                        )
+                        cell.outputs.add(output)
+                        notebookPanel.appendCellOutput(cell.id, output)
+                    }
+                    "execute_reply" -> {
+                        val execCount = content.get("execution_count")?.asInt
+                        cell.executionCount = execCount
+                        cell.executionState = CellExecutionState.IDLE
+                        notebookPanel.setCellExecuting(cell.id, false)
+                        notebookPanel.setExecutionCount(cell.id, execCount)
+                        km.removeCallback(msgId)
+                        notebook?.isDirty = true
+                    }
+                }
+            }
+        }
+    }
+
+    private fun parseDataBundle(data: com.google.gson.JsonObject?): Map<String, Any>? {
+        if (data == null) return null
+        val result = mutableMapOf<String, Any>()
+        for ((key, value) in data.entrySet()) {
+            result[key] = when {
+                value.isJsonArray -> value.asJsonArray.joinToString("") { it.asString }
+                value.isJsonPrimitive -> value.asString
+                else -> value.toString()
+            }
+        }
+        return result
+    }
 
     fun saveNotebook() {
         val nb = notebook ?: return
