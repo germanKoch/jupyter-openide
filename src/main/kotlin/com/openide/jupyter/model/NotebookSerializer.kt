@@ -11,8 +11,19 @@ object NotebookSerializer {
     private val gson: Gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
 
     fun deserialize(json: String, filePath: String): Result<Notebook> {
+        if (json.isBlank()) {
+            return Result.success(createDefaultNotebook(filePath))
+        }
         return try {
-            val root = JsonParser.parseString(json).asJsonObject
+            val parsed = try {
+                JsonParser.parseString(json)
+            } catch (e: Exception) {
+                return Result.success(createDefaultNotebook(filePath))
+            }
+            if (!parsed.isJsonObject) {
+                return Result.success(createDefaultNotebook(filePath))
+            }
+            val root = parsed.asJsonObject
             val nbformat = root.get("nbformat")?.asInt ?: return Result.failure(
                 IllegalArgumentException("Missing nbformat field")
             )
@@ -36,6 +47,19 @@ object NotebookSerializer {
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    private fun createDefaultNotebook(filePath: String): Notebook {
+        return Notebook(
+            filePath = filePath,
+            nbformatVersion = 4,
+            nbformatMinor = 5,
+            metadata = NotebookMetadata(
+                kernelSpec = KernelSpec(name = "python3", displayName = "Python 3", language = "python"),
+                languageInfo = LanguageInfo(name = "python", version = "", mimetype = "text/x-python", fileExtension = ".py")
+            ),
+            cells = mutableListOf(Cell(cellType = CellType.CODE))
+        )
     }
 
     fun serialize(notebook: Notebook): String {

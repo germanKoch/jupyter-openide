@@ -42,7 +42,7 @@ body {
 }
 
 .cell {
-    margin-bottom: 8px;
+    margin-bottom: 0;
     border: 1px solid var(--cell-border);
     border-radius: 4px;
     overflow: hidden;
@@ -125,21 +125,61 @@ body {
     50% { opacity: 0.4; }
 }
 
+/* Code cell source: textarea overlay for editing */
 .cell-source {
-    padding: 8px 12px;
+    position: relative;
     background: var(--code-bg);
+    min-height: 1.6em;
+    overflow: hidden;
+}
+
+.source-backdrop {
+    padding: 8px 12px;
+    margin: 0;
     font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
     font-size: 13px;
     line-height: 1.6;
     white-space: pre-wrap;
     word-wrap: break-word;
     tab-size: 4;
-    overflow-x: auto;
+    color: var(--text-color);
+    background: transparent;
+    min-height: 1.6em;
 }
 
-.cell-source.editable {
+.source-input {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 8px 12px;
+    margin: 0;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    tab-size: 4;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    caret-color: var(--text-color);
+    background: transparent;
+    border: none;
     outline: none;
-    border-left: 3px solid var(--cell-active-border);
+    resize: none;
+    overflow: hidden;
+    letter-spacing: inherit;
+    word-spacing: inherit;
+}
+
+.cell-source.editing .source-input {
+    display: block;
+}
+
+.cell-source.editing {
+    box-shadow: inset 3px 0 0 var(--cell-active-border);
 }
 
 .cell-output {
@@ -157,9 +197,7 @@ body {
     display: none;
 }
 
-.output-stream {
-    color: var(--text-color);
-}
+.output-stream { color: var(--text-color); }
 
 .output-error {
     background: var(--error-bg);
@@ -168,88 +206,33 @@ body {
     border-top: 1px solid #5c2020;
 }
 
-.output-html {
-    color: var(--text-color);
-}
-
-.output-html table {
-    border-collapse: collapse;
-    margin: 4px 0;
-    font-size: 12px;
-}
-
-.output-html th,
-.output-html td {
-    border: 1px solid var(--cell-border);
-    padding: 4px 8px;
-    text-align: left;
-}
-
-.output-html th {
-    background: var(--cell-bg);
-    font-weight: 600;
-}
-
-.output-image img {
-    max-width: 100%;
-    height: auto;
-}
+.output-html { color: var(--text-color); }
+.output-html table { border-collapse: collapse; margin: 4px 0; font-size: 12px; }
+.output-html th, .output-html td { border: 1px solid var(--cell-border); padding: 4px 8px; text-align: left; }
+.output-html th { background: var(--cell-bg); font-weight: 600; }
+.output-image img { max-width: 100%; height: auto; }
 
 .markdown-rendered {
     padding: 12px 16px;
     color: var(--markdown-text);
     line-height: 1.7;
+    cursor: text;
 }
 
 .markdown-rendered h1 { font-size: 1.8em; margin: 0.5em 0 0.3em; border-bottom: 1px solid var(--separator-color); padding-bottom: 0.2em; }
 .markdown-rendered h2 { font-size: 1.5em; margin: 0.5em 0 0.3em; border-bottom: 1px solid var(--separator-color); padding-bottom: 0.2em; }
 .markdown-rendered h3 { font-size: 1.25em; margin: 0.5em 0 0.3em; }
 .markdown-rendered h4 { font-size: 1.1em; margin: 0.5em 0 0.3em; }
-
 .markdown-rendered p { margin: 0.5em 0; }
-
 .markdown-rendered a { color: #4fc1ff; text-decoration: none; }
 .markdown-rendered a:hover { text-decoration: underline; }
-
-.markdown-rendered code {
-    background: var(--code-bg);
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 0.9em;
-}
-
-.markdown-rendered pre {
-    background: var(--code-bg);
-    padding: 12px;
-    border-radius: 4px;
-    overflow-x: auto;
-    margin: 0.5em 0;
-}
-
-.markdown-rendered pre code {
-    padding: 0;
-    background: none;
-}
-
-.markdown-rendered ul, .markdown-rendered ol {
-    padding-left: 2em;
-    margin: 0.5em 0;
-}
-
+.markdown-rendered code { background: var(--code-bg); padding: 2px 5px; border-radius: 3px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.9em; }
+.markdown-rendered pre { background: var(--code-bg); padding: 12px; border-radius: 4px; overflow-x: auto; margin: 0.5em 0; }
+.markdown-rendered pre code { padding: 0; background: none; }
+.markdown-rendered ul, .markdown-rendered ol { padding-left: 2em; margin: 0.5em 0; }
 .markdown-rendered li { margin: 0.2em 0; }
-
-.markdown-rendered blockquote {
-    border-left: 3px solid var(--cell-active-border);
-    padding-left: 12px;
-    margin: 0.5em 0;
-    color: var(--execution-count-color);
-}
-
-.markdown-rendered img {
-    max-width: 100%;
-    height: auto;
-}
+.markdown-rendered blockquote { border-left: 3px solid var(--cell-active-border); padding-left: 12px; margin: 0.5em 0; color: var(--execution-count-color); }
+.markdown-rendered img { max-width: 100%; height: auto; }
 
 .markdown-source {
     display: none;
@@ -271,6 +254,7 @@ body {
     box-shadow: 0 0 0 1px var(--cell-active-border);
 }
 
+/* Syntax token colors */
 .tok-keyword { color: var(--keyword-color); }
 .tok-string { color: var(--string-color); }
 .tok-number { color: var(--number-color); }
@@ -279,6 +263,7 @@ body {
 .tok-builtin { color: var(--builtin-color); }
 .tok-known-var { color: var(--known-var-color); }
 
+/* Delete button in cell header */
 .delete-btn {
     background: none;
     border: none;
@@ -298,9 +283,10 @@ body {
     color: var(--error-text);
 }
 
+/* Cell gap with "+" button */
 .cell-gap {
     position: relative;
-    height: 16px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -319,12 +305,12 @@ body {
     cursor: pointer;
     z-index: 10;
     transition: background 0.15s;
+    align-items: center;
+    justify-content: center;
 }
 
 .cell-gap:hover .add-cell-btn {
     display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .cell-gap .add-cell-btn:hover {

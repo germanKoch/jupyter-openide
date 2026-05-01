@@ -6,7 +6,7 @@ function initBridge(bridge) {
     kotlinBridge = bridge;
 }
 
-// ── Syntax Tokenizer (T003) ──
+// ── Syntax Tokenizer ──
 
 const PYTHON_KEYWORDS = new Set([
     'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await',
@@ -38,111 +38,97 @@ const PYTHON_BUILTINS = new Set([
 ]);
 
 function tokenize(source, knownNames) {
-    const tokens = [];
-    let i = 0;
-    const len = source.length;
-    const known = knownNames || new Set();
+    var tokens = [];
+    var i = 0;
+    var len = source.length;
+    var known = knownNames || new Set();
 
     while (i < len) {
-        // Comments
         if (source[i] === '#') {
-            let end = source.indexOf('\n', i);
+            var end = source.indexOf('\n', i);
             if (end === -1) end = len;
             tokens.push({ type: 'comment', value: source.slice(i, end) });
             i = end;
             continue;
         }
 
-        // Triple-quoted strings
         if (i < len - 2) {
-            const tri = source.slice(i, i + 3);
-            let prefix = '';
-            let startOffset = i;
-            if (i > 0 && 'fFbBrRuU'.includes(source[i - 1]) && tokens.length > 0 && tokens[tokens.length - 1].type === 'text') {
-                // Check if last text token ends with a string prefix
-            }
-            // Check for f/b/r/u prefix before quotes
             if ('fFbBrRuU'.includes(source[i]) && i + 3 < len) {
-                const afterPrefix = source.slice(i + 1, i + 4);
+                var afterPrefix = source.slice(i + 1, i + 4);
                 if (afterPrefix === '"""' || afterPrefix === "'''") {
-                    prefix = source[i];
-                    startOffset = i;
-                    const quote = afterPrefix;
-                    let end = source.indexOf(quote, i + 4);
-                    if (end === -1) end = len - 3;
-                    if (end < i + 4) end = len;
-                    else end += 3;
-                    tokens.push({ type: 'string', value: source.slice(startOffset, end) });
-                    i = end;
+                    var startOffset = i;
+                    var quote3 = afterPrefix;
+                    var end3 = source.indexOf(quote3, i + 4);
+                    if (end3 === -1) end3 = len;
+                    else end3 += 3;
+                    tokens.push({ type: 'string', value: source.slice(startOffset, end3) });
+                    i = end3;
                     continue;
                 }
             }
+            var tri = source.slice(i, i + 3);
             if (tri === '"""' || tri === "'''") {
-                let end = source.indexOf(tri, i + 3);
-                if (end === -1) end = len;
-                else end += 3;
-                tokens.push({ type: 'string', value: source.slice(i, end) });
-                i = end;
+                var end3b = source.indexOf(tri, i + 3);
+                if (end3b === -1) end3b = len;
+                else end3b += 3;
+                tokens.push({ type: 'string', value: source.slice(i, end3b) });
+                i = end3b;
                 continue;
             }
         }
 
-        // Single/double quoted strings (with optional f/b/r/u prefix)
         if (source[i] === '"' || source[i] === "'" ||
             ('fFbBrRuU'.includes(source[i]) && i + 1 < len && (source[i + 1] === '"' || source[i + 1] === "'"))) {
-            let start = i;
+            var start = i;
             if ('fFbBrRuU'.includes(source[i])) i++;
-            const quote = source[i];
+            var q = source[i];
             i++;
-            while (i < len && source[i] !== quote && source[i] !== '\n') {
+            while (i < len && source[i] !== q && source[i] !== '\n') {
                 if (source[i] === '\\') i++;
                 i++;
             }
-            if (i < len && source[i] === quote) i++;
+            if (i < len && source[i] === q) i++;
             tokens.push({ type: 'string', value: source.slice(start, i) });
             continue;
         }
 
-        // Decorators
         if (source[i] === '@' && (i === 0 || source[i - 1] === '\n' || /\s/.test(source[i - 1]))) {
-            let end = i + 1;
-            while (end < len && /[\w.]/.test(source[end])) end++;
-            if (end > i + 1) {
-                tokens.push({ type: 'decorator', value: source.slice(i, end) });
-                i = end;
+            var endD = i + 1;
+            while (endD < len && /[\w.]/.test(source[endD])) endD++;
+            if (endD > i + 1) {
+                tokens.push({ type: 'decorator', value: source.slice(i, endD) });
+                i = endD;
                 continue;
             }
         }
 
-        // Numbers (hex, octal, binary, float, scientific, int)
         if (/[0-9]/.test(source[i]) || (source[i] === '.' && i + 1 < len && /[0-9]/.test(source[i + 1]))) {
-            let end = i;
-            if (source[end] === '0' && end + 1 < len && 'xXoObB'.includes(source[end + 1])) {
-                end += 2;
-                while (end < len && /[0-9a-fA-F_]/.test(source[end])) end++;
+            var endN = i;
+            if (source[endN] === '0' && endN + 1 < len && 'xXoObB'.includes(source[endN + 1])) {
+                endN += 2;
+                while (endN < len && /[0-9a-fA-F_]/.test(source[endN])) endN++;
             } else {
-                while (end < len && /[0-9_]/.test(source[end])) end++;
-                if (end < len && source[end] === '.') {
-                    end++;
-                    while (end < len && /[0-9_]/.test(source[end])) end++;
+                while (endN < len && /[0-9_]/.test(source[endN])) endN++;
+                if (endN < len && source[endN] === '.') {
+                    endN++;
+                    while (endN < len && /[0-9_]/.test(source[endN])) endN++;
                 }
-                if (end < len && 'eE'.includes(source[end])) {
-                    end++;
-                    if (end < len && '+-'.includes(source[end])) end++;
-                    while (end < len && /[0-9_]/.test(source[end])) end++;
+                if (endN < len && 'eE'.includes(source[endN])) {
+                    endN++;
+                    if (endN < len && '+-'.includes(source[endN])) endN++;
+                    while (endN < len && /[0-9_]/.test(source[endN])) endN++;
                 }
-                if (end < len && 'jJ'.includes(source[end])) end++;
+                if (endN < len && 'jJ'.includes(source[endN])) endN++;
             }
-            tokens.push({ type: 'number', value: source.slice(i, end) });
-            i = end;
+            tokens.push({ type: 'number', value: source.slice(i, endN) });
+            i = endN;
             continue;
         }
 
-        // Identifiers and keywords
         if (/[a-zA-Z_]/.test(source[i])) {
-            let end = i;
-            while (end < len && /[\w]/.test(source[end])) end++;
-            const word = source.slice(i, end);
+            var endW = i;
+            while (endW < len && /[\w]/.test(source[endW])) endW++;
+            var word = source.slice(i, endW);
             if (PYTHON_KEYWORDS.has(word)) {
                 tokens.push({ type: 'keyword', value: word });
             } else if (PYTHON_BUILTINS.has(word)) {
@@ -152,31 +138,31 @@ function tokenize(source, knownNames) {
             } else {
                 tokens.push({ type: 'text', value: word });
             }
-            i = end;
+            i = endW;
             continue;
         }
 
-        // Whitespace and operators — collect as text
-        let end = i + 1;
-        while (end < len && !/[a-zA-Z_0-9#"'@.fFbBrRuU]/.test(source[end]) && source[end] !== '.' ) {
-            end++;
+        var endT = i + 1;
+        while (endT < len && !/[a-zA-Z_0-9#"'@.fFbBrRuU]/.test(source[endT]) && source[endT] !== '.') {
+            endT++;
         }
-        tokens.push({ type: 'text', value: source.slice(i, end) });
-        i = end;
+        tokens.push({ type: 'text', value: source.slice(i, endT) });
+        i = endT;
     }
     return tokens;
 }
 
-// ── Highlighted HTML Renderer (T004) ──
+// ── Highlighted HTML Renderer ──
 
 function escapeHtmlJS(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function renderHighlighted(tokens) {
-    let html = '';
-    for (const tok of tokens) {
-        const escaped = escapeHtmlJS(tok.value);
+    var html = '';
+    for (var ti = 0; ti < tokens.length; ti++) {
+        var tok = tokens[ti];
+        var escaped = escapeHtmlJS(tok.value);
         if (tok.type === 'text') {
             html += escaped;
         } else {
@@ -186,60 +172,25 @@ function renderHighlighted(tokens) {
     return html;
 }
 
-// ── Cursor Save/Restore (T005) ──
-
-function saveCursorOffset(element) {
-    const sel = window.getSelection();
-    if (!sel.rangeCount) return 0;
-    const range = sel.getRangeAt(0);
-    const preRange = document.createRange();
-    preRange.selectNodeContents(element);
-    preRange.setEnd(range.startContainer, range.startOffset);
-    return preRange.toString().length;
-}
-
-function restoreCursorOffset(element, offset) {
-    const sel = window.getSelection();
-    const range = document.createRange();
-    let current = 0;
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
-    let node;
-    while ((node = walker.nextNode())) {
-        const nodeLen = node.textContent.length;
-        if (current + nodeLen >= offset) {
-            range.setStart(node, offset - current);
-            range.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(range);
-            return;
-        }
-        current += nodeLen;
-    }
-    range.selectNodeContents(element);
-    range.collapse(false);
-    sel.removeAllRanges();
-    sel.addRange(range);
-}
-
-// ── Cross-Cell Variable Extraction (T025, T026) ──
+// ── Cross-Cell Variable Extraction ──
 
 function extractDefinedNames(source) {
-    const names = new Set();
-    const lines = source.split('\n');
-    for (const line of lines) {
-        const trimmed = line.trimStart();
-        let m;
+    var names = new Set();
+    var lines = source.split('\n');
+    for (var li = 0; li < lines.length; li++) {
+        var trimmed = lines[li].trimStart();
+        var m;
         if ((m = trimmed.match(/^(\w+)\s*=/))) names.add(m[1]);
         if ((m = trimmed.match(/^def\s+(\w+)/))) names.add(m[1]);
         if ((m = trimmed.match(/^class\s+(\w+)/))) names.add(m[1]);
         if ((m = trimmed.match(/^import\s+(\w+)/))) names.add(m[1]);
         if ((m = trimmed.match(/^from\s+\w+\s+import\s+(.+)/))) {
             m[1].split(',').forEach(function(part) {
-                const asMatch = part.trim().match(/(\w+)\s+as\s+(\w+)/);
+                var asMatch = part.trim().match(/(\w+)\s+as\s+(\w+)/);
                 if (asMatch) {
                     names.add(asMatch[2]);
                 } else {
-                    const name = part.trim().match(/^(\w+)/);
+                    var name = part.trim().match(/^(\w+)/);
                     if (name) names.add(name[1]);
                 }
             });
@@ -252,57 +203,62 @@ function extractDefinedNames(source) {
     return names;
 }
 
+function getCellText(cellId) {
+    var cell = document.getElementById('cell-' + cellId);
+    if (!cell) return '';
+    var textarea = cell.querySelector('.source-input');
+    if (textarea && cell.querySelector('.cell-source.editing')) {
+        return textarea.value;
+    }
+    var backdrop = cell.querySelector('.source-backdrop');
+    if (backdrop) return backdrop.textContent;
+    return '';
+}
+
 function buildVariableScope(upToCellIndex) {
-    const names = new Set();
-    const cells = document.querySelectorAll('#notebook-container .cell');
-    let idx = 0;
-    for (const cell of cells) {
+    var names = new Set();
+    var cells = document.querySelectorAll('#notebook-container .cell');
+    var idx = 0;
+    for (var ci = 0; ci < cells.length; ci++) {
         if (idx >= upToCellIndex) break;
+        var cell = cells[ci];
         if (cell.dataset.cellType === 'code') {
-            const sourceEl = cell.querySelector('.cell-source');
-            if (sourceEl) {
-                const cellNames = extractDefinedNames(sourceEl.textContent);
-                cellNames.forEach(function(n) { names.add(n); });
-            }
+            var text = getCellText(cell.dataset.cellId);
+            var cellNames = extractDefinedNames(text);
+            cellNames.forEach(function(n) { names.add(n); });
         }
         idx++;
     }
     return names;
 }
 
-// ── Highlight Helpers (T013, T014, T027, T028) ──
+// ── Highlight Helpers ──
 
 function getCellIndex(cellId) {
-    const cells = document.querySelectorAll('#notebook-container .cell');
-    let idx = 0;
-    for (const cell of cells) {
-        if (cell.dataset.cellId === cellId) return idx;
-        idx++;
+    var cells = document.querySelectorAll('#notebook-container .cell');
+    for (var i = 0; i < cells.length; i++) {
+        if (cells[i].dataset.cellId === cellId) return i;
     }
     return -1;
 }
 
-function highlightCellSource(sourceEl, cellId) {
-    const text = sourceEl.textContent;
-    const cellIdx = getCellIndex(cellId);
-    const scope = buildVariableScope(cellIdx);
-    const tokens = tokenize(text, scope);
-    const html = renderHighlighted(tokens);
-    sourceEl.innerHTML = html;
+function highlightBackdrop(cellId) {
+    var cell = document.getElementById('cell-' + cellId);
+    if (!cell || cell.dataset.cellType !== 'code') return;
+    var backdrop = cell.querySelector('.source-backdrop');
+    if (!backdrop) return;
+    var text = getCellText(cellId);
+    var cellIdx = getCellIndex(cellId);
+    var scope = buildVariableScope(cellIdx);
+    var tokens = tokenize(text, scope);
+    backdrop.innerHTML = renderHighlighted(tokens);
 }
 
 function highlightAllCells() {
-    const cells = document.querySelectorAll('#notebook-container .cell');
-    for (const cell of cells) {
-        if (cell.dataset.cellType === 'code') {
-            const sourceEl = cell.querySelector('.cell-source');
-            if (sourceEl) {
-                const isEditing = sourceEl.contentEditable === 'true';
-                let cursorOff = 0;
-                if (isEditing) cursorOff = saveCursorOffset(sourceEl);
-                highlightCellSource(sourceEl, cell.dataset.cellId);
-                if (isEditing) restoreCursorOffset(sourceEl, cursorOff);
-            }
+    var cells = document.querySelectorAll('#notebook-container .cell');
+    for (var i = 0; i < cells.length; i++) {
+        if (cells[i].dataset.cellType === 'code') {
+            highlightBackdrop(cells[i].dataset.cellId);
         }
     }
 }
@@ -312,30 +268,28 @@ function scheduleHighlightAll() {
     highlightDebounceTimer = setTimeout(highlightAllCells, 300);
 }
 
-// ── Cell Gap Management (T021, T022, T024) ──
+// ── Cell Gap Management ──
 
 function createCellGap(afterCellId) {
-    const gap = document.createElement('div');
+    var gap = document.createElement('div');
     gap.className = 'cell-gap';
     gap.dataset.afterCellId = afterCellId || '';
 
-    const btn = document.createElement('button');
+    var btn = document.createElement('button');
     btn.className = 'add-cell-btn';
     btn.textContent = '+';
     btn.title = 'Add cell';
     btn.onclick = function(e) {
         e.stopPropagation();
-        const dropdown = gap.querySelector('.add-cell-dropdown');
-        if (dropdown) {
-            dropdown.classList.toggle('visible');
-        }
+        var dropdown = gap.querySelector('.add-cell-dropdown');
+        if (dropdown) dropdown.classList.toggle('visible');
     };
     gap.appendChild(btn);
 
-    const dropdown = document.createElement('div');
+    var dropdown = document.createElement('div');
     dropdown.className = 'add-cell-dropdown';
 
-    const codeBtn = document.createElement('button');
+    var codeBtn = document.createElement('button');
     codeBtn.textContent = '+ Code';
     codeBtn.onclick = function(e) {
         e.stopPropagation();
@@ -344,7 +298,7 @@ function createCellGap(afterCellId) {
     };
     dropdown.appendChild(codeBtn);
 
-    const mdBtn = document.createElement('button');
+    var mdBtn = document.createElement('button');
     mdBtn.textContent = '+ Markdown';
     mdBtn.onclick = function(e) {
         e.stopPropagation();
@@ -358,50 +312,62 @@ function createCellGap(afterCellId) {
 }
 
 function rebuildGaps() {
-    const container = document.getElementById('notebook-container');
-    container.querySelectorAll('.cell-gap').forEach(function(g) { g.remove(); });
+    var container = document.getElementById('notebook-container');
+    var oldGaps = container.querySelectorAll('.cell-gap');
+    for (var g = 0; g < oldGaps.length; g++) oldGaps[g].remove();
 
-    const cells = container.querySelectorAll('.cell');
-    // Gap before first cell
-    const firstGap = createCellGap('');
+    var cells = container.querySelectorAll('.cell');
+    var firstGap = createCellGap('');
     if (cells.length > 0) {
         container.insertBefore(firstGap, cells[0]);
     } else {
         container.appendChild(firstGap);
     }
 
-    // Gap after each cell
-    for (const cell of cells) {
-        const gap = createCellGap(cell.dataset.cellId);
-        if (cell.nextSibling) {
-            container.insertBefore(gap, cell.nextSibling);
+    for (var c = 0; c < cells.length; c++) {
+        var gap = createCellGap(cells[c].dataset.cellId);
+        if (cells[c].nextSibling) {
+            container.insertBefore(gap, cells[c].nextSibling);
         } else {
             container.appendChild(gap);
         }
     }
 }
 
-// ── Cell Construction (modified addCell with all features) ──
+// ── Textarea height sync ──
+
+function syncTextareaHeight(cellId) {
+    var cell = document.getElementById('cell-' + cellId);
+    if (!cell) return;
+    var backdrop = cell.querySelector('.source-backdrop');
+    var textarea = cell.querySelector('.source-input');
+    if (!backdrop || !textarea) return;
+    var h = backdrop.scrollHeight;
+    if (h < 24) h = 24;
+    textarea.style.height = h + 'px';
+}
+
+// ── Cell Construction ──
 
 function addCell(id, type, source, outputsHtml, executionCount) {
-    const container = document.getElementById('notebook-container');
-    const cell = document.createElement('div');
+    var container = document.getElementById('notebook-container');
+    var cell = document.createElement('div');
     cell.id = 'cell-' + id;
     cell.className = 'cell';
     cell.dataset.cellId = id;
     cell.dataset.cellType = type;
     cell.onclick = function(e) { selectCell(id); };
 
-    const header = document.createElement('div');
+    var header = document.createElement('div');
     header.className = 'cell-header';
 
-    const badge = document.createElement('span');
+    var badge = document.createElement('span');
     badge.className = 'cell-type-badge ' + type;
     badge.textContent = type;
     header.appendChild(badge);
 
     if (type === 'code') {
-        const runBtn = document.createElement('button');
+        var runBtn = document.createElement('button');
         runBtn.className = 'run-btn';
         runBtn.textContent = '▶';
         runBtn.title = 'Run cell (Shift+Enter)';
@@ -412,20 +378,19 @@ function addCell(id, type, source, outputsHtml, executionCount) {
         };
         header.appendChild(runBtn);
 
-        const execCount = document.createElement('span');
+        var execCount = document.createElement('span');
         execCount.className = 'execution-count';
         execCount.id = 'exec-count-' + id;
         execCount.textContent = executionCount != null ? '[' + executionCount + ']' : '[ ]';
         header.appendChild(execCount);
 
-        const indicator = document.createElement('span');
+        var indicator = document.createElement('span');
         indicator.className = 'execution-indicator';
         indicator.textContent = '●';
         header.appendChild(indicator);
     }
 
-    // Delete button (T023)
-    const delBtn = document.createElement('button');
+    var delBtn = document.createElement('button');
     delBtn.className = 'delete-btn';
     delBtn.textContent = '×';
     delBtn.title = 'Delete cell';
@@ -438,40 +403,49 @@ function addCell(id, type, source, outputsHtml, executionCount) {
     cell.appendChild(header);
 
     if (type === 'code') {
-        const sourceDiv = document.createElement('div');
-        sourceDiv.className = 'cell-source';
-        sourceDiv.id = 'source-' + id;
+        var sourceWrapper = document.createElement('div');
+        sourceWrapper.className = 'cell-source';
+        sourceWrapper.id = 'source-' + id;
 
-        // Syntax highlighting on render (T013)
-        const tempDiv = document.createElement('div');
-        tempDiv.textContent = source;
-        const rawText = tempDiv.textContent;
-        const cellIdx = getCellIndexByContainer(container, id);
-        const scope = buildVariableScope(cellIdx >= 0 ? cellIdx : 9999);
-        const tokens = tokenize(rawText, scope);
-        sourceDiv.innerHTML = renderHighlighted(tokens);
+        var backdrop = document.createElement('pre');
+        backdrop.className = 'source-backdrop';
 
-        // Double-click to edit (T006)
-        sourceDiv.ondblclick = function(e) {
+        var decodedSource = source || '';
+        var cellIdx = getCellIndexByContainer(container, id);
+        var scope = buildVariableScope(cellIdx >= 0 ? cellIdx : 9999);
+        var tokens = tokenize(decodedSource, scope);
+        backdrop.innerHTML = renderHighlighted(tokens);
+
+        var textarea = document.createElement('textarea');
+        textarea.className = 'source-input';
+        textarea.spellcheck = false;
+        textarea.autocomplete = 'off';
+        textarea.autocorrect = 'off';
+        textarea.autocapitalize = 'off';
+        textarea.value = decodedSource;
+
+        sourceWrapper.appendChild(backdrop);
+        sourceWrapper.appendChild(textarea);
+
+        sourceWrapper.ondblclick = function(e) {
             e.stopPropagation();
-            if (cell.classList.contains('executing')) return; // T011
+            if (cell.classList.contains('executing')) return;
             enterEditMode(id);
         };
 
-        cell.appendChild(sourceDiv);
+        cell.appendChild(sourceWrapper);
 
-        const outputDiv = document.createElement('div');
+        var outputDiv = document.createElement('div');
         outputDiv.className = 'cell-output';
         outputDiv.id = 'output-' + id;
         outputDiv.innerHTML = outputsHtml || '';
         cell.appendChild(outputDiv);
     } else {
-        const renderedDiv = document.createElement('div');
+        var renderedDiv = document.createElement('div');
         renderedDiv.className = 'markdown-rendered';
         renderedDiv.id = 'md-rendered-' + id;
         renderedDiv.innerHTML = source;
 
-        // Double-click to edit markdown (T009)
         renderedDiv.ondblclick = function(e) {
             e.stopPropagation();
             if (cell.classList.contains('executing')) return;
@@ -480,82 +454,163 @@ function addCell(id, type, source, outputsHtml, executionCount) {
 
         cell.appendChild(renderedDiv);
 
-        const sourceDiv = document.createElement('div');
-        sourceDiv.className = 'markdown-source';
-        sourceDiv.id = 'md-source-' + id;
-        sourceDiv.contentEditable = 'true';
-        cell.appendChild(sourceDiv);
+        var mdSourceDiv = document.createElement('div');
+        mdSourceDiv.className = 'markdown-source';
+        mdSourceDiv.id = 'md-source-' + id;
+        mdSourceDiv.contentEditable = 'true';
+        cell.appendChild(mdSourceDiv);
     }
 
     container.appendChild(cell);
 }
 
 function getCellIndexByContainer(container, cellId) {
-    const cells = container.querySelectorAll('.cell');
-    let idx = 0;
-    for (const c of cells) {
-        if (c.dataset.cellId === cellId) return idx;
-        idx++;
+    var cells = container.querySelectorAll('.cell');
+    for (var i = 0; i < cells.length; i++) {
+        if (cells[i].dataset.cellId === cellId) return i;
     }
     return -1;
 }
 
-// ── Edit Mode (T006, T007, T008, T011) ──
+// ── Edit Mode (Textarea overlay) ──
 
 function enterEditMode(id) {
-    const sourceEl = document.getElementById('source-' + id);
-    if (!sourceEl) return;
-    sourceEl.contentEditable = 'true';
-    sourceEl.classList.add('editable');
-    sourceEl.focus();
+    var cell = document.getElementById('cell-' + id);
+    if (!cell) return;
+    var sourceWrapper = cell.querySelector('.cell-source');
+    var textarea = cell.querySelector('.source-input');
+    var backdrop = cell.querySelector('.source-backdrop');
+    if (!sourceWrapper || !textarea || !backdrop) return;
 
-    sourceEl.onkeydown = function(e) {
-        // Tab → insert 4 spaces (T007)
+    sourceWrapper.classList.add('editing');
+    textarea.value = backdrop.textContent;
+    syncTextareaHeight(id);
+    textarea.focus();
+
+    textarea.onkeydown = function(e) {
         if (e.key === 'Tab' && !e.shiftKey) {
             e.preventDefault();
-            document.execCommand('insertText', false, '    ');
+            var start = textarea.selectionStart;
+            var end = textarea.selectionEnd;
+            var v = textarea.value;
+            textarea.value = v.substring(0, start) + '    ' + v.substring(end);
+            textarea.selectionStart = textarea.selectionEnd = start + 4;
+            textarea.dispatchEvent(new Event('input'));
             return;
         }
-        // Escape → exit edit mode (T007)
         if (e.key === 'Escape') {
             e.preventDefault();
             exitEditMode(id);
             return;
         }
-        // Shift+Enter → run cell (T008)
-        if (e.shiftKey && e.key === 'Enter') {
+        if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
             e.preventDefault();
             exitEditMode(id);
             if (kotlinBridge) kotlinBridge.runCell(id);
+            moveToNextCell(id);
+            return;
+        }
+        if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            if (kotlinBridge) kotlinBridge.saveNotebook();
+            return;
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft') {
+            e.preventDefault();
+            var pos = textarea.selectionStart;
+            var text = textarea.value;
+            var lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+            textarea.selectionStart = textarea.selectionEnd = lineStart;
+            return;
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') {
+            e.preventDefault();
+            var pos = textarea.selectionStart;
+            var text = textarea.value;
+            var lineEnd = text.indexOf('\n', pos);
+            if (lineEnd === -1) lineEnd = text.length;
+            textarea.selectionStart = textarea.selectionEnd = lineEnd;
+            return;
+        }
+        if (e.altKey && e.key === 'ArrowLeft') {
+            e.preventDefault();
+            var pos = textarea.selectionStart;
+            var text = textarea.value;
+            var i = pos - 1;
+            while (i > 0 && /\s/.test(text[i])) i--;
+            while (i > 0 && /\w/.test(text[i - 1])) i--;
+            textarea.selectionStart = textarea.selectionEnd = i;
+            return;
+        }
+        if (e.altKey && e.key === 'ArrowRight') {
+            e.preventDefault();
+            var pos = textarea.selectionStart;
+            var text = textarea.value;
+            var i = pos;
+            while (i < text.length && /\s/.test(text[i])) i++;
+            while (i < text.length && /\w/.test(text[i])) i++;
+            textarea.selectionStart = textarea.selectionEnd = i;
             return;
         }
     };
 
-    // Real-time highlighting during edit (T014)
-    sourceEl.oninput = function() {
-        const text = sourceEl.textContent;
-        if (kotlinBridge) {
-            kotlinBridge.cellSourceChanged(id, text);
-        }
-        const off = saveCursorOffset(sourceEl);
-        const cellIdx = getCellIndex(id);
-        const scope = buildVariableScope(cellIdx);
-        const tokens = tokenize(text, scope);
-        sourceEl.innerHTML = renderHighlighted(tokens);
-        restoreCursorOffset(sourceEl, off);
-        scheduleHighlightAll(); // T029: update downstream cells
+    textarea.oninput = function() {
+        var text = textarea.value;
+        if (kotlinBridge) kotlinBridge.cellSourceChanged(id, text);
+        var cellIdx = getCellIndex(id);
+        var scope = buildVariableScope(cellIdx);
+        var tokens = tokenize(text, scope);
+        backdrop.innerHTML = renderHighlighted(tokens);
+        syncTextareaHeight(id);
+        scheduleHighlightAll();
+    };
+
+    textarea.onscroll = function() {
+        backdrop.scrollTop = textarea.scrollTop;
+        backdrop.scrollLeft = textarea.scrollLeft;
     };
 }
 
 function exitEditMode(id) {
-    const sourceEl = document.getElementById('source-' + id);
-    if (!sourceEl) return;
-    sourceEl.contentEditable = 'false';
-    sourceEl.classList.remove('editable');
-    sourceEl.onkeydown = null;
-    sourceEl.oninput = null;
-    sourceEl.blur();
-    highlightCellSource(sourceEl, id);
+    var cell = document.getElementById('cell-' + id);
+    if (!cell) return;
+    var sourceWrapper = cell.querySelector('.cell-source');
+    var textarea = cell.querySelector('.source-input');
+    if (!sourceWrapper || !textarea) return;
+
+    sourceWrapper.classList.remove('editing');
+    textarea.onkeydown = null;
+    textarea.oninput = null;
+    textarea.onscroll = null;
+    textarea.blur();
+    highlightBackdrop(id);
+}
+
+function isEditing(id) {
+    var cell = document.getElementById('cell-' + id);
+    if (!cell) return false;
+    var sw = cell.querySelector('.cell-source');
+    return sw && sw.classList.contains('editing');
+}
+
+function moveToNextCell(currentId) {
+    var cells = document.querySelectorAll('#notebook-container .cell');
+    var found = false;
+    for (var i = 0; i < cells.length; i++) {
+        if (cells[i].dataset.cellId === currentId) {
+            found = true;
+            continue;
+        }
+        if (found) {
+            var nextId = cells[i].dataset.cellId;
+            selectCell(nextId);
+            scrollToCell(nextId);
+            if (cells[i].dataset.cellType === 'code') {
+                enterEditMode(nextId);
+            }
+            return;
+        }
+    }
 }
 
 function makeEditable(id) {
@@ -566,40 +621,46 @@ function makeReadOnly(id) {
     exitEditMode(id);
 }
 
-// ── Markdown Edit Mode (T009, T010) ──
+// ── Markdown Edit Mode ──
 
 function startEditMarkdown(id) {
-    const cell = document.getElementById('cell-' + id);
-    const mdSource = document.getElementById('md-source-' + id);
+    var cell = document.getElementById('cell-' + id);
+    var mdSource = document.getElementById('md-source-' + id);
     if (cell && mdSource) {
         cell.classList.add('editing-markdown');
         mdSource.focus();
         mdSource.oninput = function() {
-            if (kotlinBridge) {
-                kotlinBridge.cellSourceChanged(id, mdSource.textContent);
+            if (kotlinBridge) kotlinBridge.cellSourceChanged(id, mdSource.textContent);
+        };
+        mdSource.onkeydown = function(e) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                if (kotlinBridge) kotlinBridge.cellSourceChanged(id, mdSource.textContent);
+                cell.classList.remove('editing-markdown');
+            }
+            if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                if (kotlinBridge) kotlinBridge.saveNotebook();
             }
         };
     }
 }
 
 function stopEditMarkdown(id, renderedHtml) {
-    const cell = document.getElementById('cell-' + id);
-    const rendered = document.getElementById('md-rendered-' + id);
-    if (cell) {
-        cell.classList.remove('editing-markdown');
-    }
-    if (rendered) {
-        rendered.innerHTML = renderedHtml;
-    }
+    var cell = document.getElementById('cell-' + id);
+    var rendered = document.getElementById('md-rendered-' + id);
+    if (cell) cell.classList.remove('editing-markdown');
+    if (rendered) rendered.innerHTML = renderedHtml;
 }
 
-// Click-outside handler for markdown cells (T010)
+// Click-outside handler for markdown cells
 document.addEventListener('mousedown', function(e) {
-    const editingCells = document.querySelectorAll('.cell.editing-markdown');
-    for (const cell of editingCells) {
+    var editingCells = document.querySelectorAll('.cell.editing-markdown');
+    for (var i = 0; i < editingCells.length; i++) {
+        var cell = editingCells[i];
         if (!cell.contains(e.target)) {
-            const cellId = cell.dataset.cellId;
-            const mdSource = document.getElementById('md-source-' + cellId);
+            var cellId = cell.dataset.cellId;
+            var mdSource = document.getElementById('md-source-' + cellId);
             if (mdSource && kotlinBridge) {
                 kotlinBridge.cellSourceChanged(cellId, mdSource.textContent);
             }
@@ -611,110 +672,87 @@ document.addEventListener('mousedown', function(e) {
 // Close dropdowns on outside click
 document.addEventListener('mousedown', function(e) {
     if (!e.target.closest('.cell-gap')) {
-        document.querySelectorAll('.add-cell-dropdown.visible').forEach(function(d) {
-            d.classList.remove('visible');
-        });
+        var dropdowns = document.querySelectorAll('.add-cell-dropdown.visible');
+        for (var i = 0; i < dropdowns.length; i++) dropdowns[i].classList.remove('visible');
     }
 });
 
-// ── Existing Functions (updated) ──
+// ── Existing Functions (updated for textarea overlay) ──
 
 function updateCell(id, source) {
-    const sourceEl = document.getElementById('source-' + id);
-    if (sourceEl) {
-        // Apply highlighting (T015)
-        sourceEl.textContent = source;
-        highlightCellSource(sourceEl, id);
+    var cell = document.getElementById('cell-' + id);
+    if (!cell) return;
+    var backdrop = cell.querySelector('.source-backdrop');
+    var textarea = cell.querySelector('.source-input');
+    if (backdrop) {
+        if (textarea) textarea.value = source;
+        highlightBackdrop(id);
+        syncTextareaHeight(id);
     }
 }
 
 function removeCell(id) {
-    const cell = document.getElementById('cell-' + id);
+    var cell = document.getElementById('cell-' + id);
     if (cell) {
         cell.remove();
-        if (selectedCellId === id) {
-            selectedCellId = null;
-        }
+        if (selectedCellId === id) selectedCellId = null;
         rebuildGaps();
-        scheduleHighlightAll(); // T029
+        scheduleHighlightAll();
     }
 }
 
 function clearOutputs(id) {
-    const outputEl = document.getElementById('output-' + id);
-    if (outputEl) {
-        outputEl.innerHTML = '';
-    }
-    const execCount = document.getElementById('exec-count-' + id);
-    if (execCount) {
-        execCount.textContent = '[*]';
-    }
+    var outputEl = document.getElementById('output-' + id);
+    if (outputEl) outputEl.innerHTML = '';
+    var execCount = document.getElementById('exec-count-' + id);
+    if (execCount) execCount.textContent = '[*]';
 }
 
 function appendOutput(id, outputHtml) {
-    const outputEl = document.getElementById('output-' + id);
-    if (outputEl) {
-        outputEl.innerHTML += outputHtml;
-    }
+    var outputEl = document.getElementById('output-' + id);
+    if (outputEl) outputEl.innerHTML += outputHtml;
 }
 
 function setExecutionCount(id, count) {
-    const execCount = document.getElementById('exec-count-' + id);
-    if (execCount) {
-        execCount.textContent = count != null ? '[' + count + ']' : '[ ]';
-    }
+    var execCount = document.getElementById('exec-count-' + id);
+    if (execCount) execCount.textContent = count != null ? '[' + count + ']' : '[ ]';
 }
 
 function setCellExecuting(id, executing) {
-    const cell = document.getElementById('cell-' + id);
-    if (cell) {
-        if (executing) {
-            cell.classList.add('executing');
-            // Exit edit mode if entering execution (T011)
-            const sourceEl = document.getElementById('source-' + id);
-            if (sourceEl && sourceEl.contentEditable === 'true') {
-                exitEditMode(id);
-            }
-        } else {
-            cell.classList.remove('executing');
-        }
+    var cell = document.getElementById('cell-' + id);
+    if (!cell) return;
+    if (executing) {
+        cell.classList.add('executing');
+        if (isEditing(id)) exitEditMode(id);
+    } else {
+        cell.classList.remove('executing');
     }
 }
 
 function selectCell(id) {
     if (selectedCellId) {
-        const prev = document.getElementById('cell-' + selectedCellId);
+        var prev = document.getElementById('cell-' + selectedCellId);
         if (prev) prev.classList.remove('cell-selected');
     }
     selectedCellId = id;
-    const cell = document.getElementById('cell-' + id);
-    if (cell) {
-        cell.classList.add('cell-selected');
-    }
-    if (kotlinBridge) {
-        kotlinBridge.cellSelected(id);
-    }
+    var cell = document.getElementById('cell-' + id);
+    if (cell) cell.classList.add('cell-selected');
+    if (kotlinBridge) kotlinBridge.cellSelected(id);
 }
 
 function scrollToCell(id) {
-    const cell = document.getElementById('cell-' + id);
-    if (cell) {
-        cell.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    var cell = document.getElementById('cell-' + id);
+    if (cell) cell.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function updateMarkdownRendered(id, html) {
-    const rendered = document.getElementById('md-rendered-' + id);
-    if (rendered) {
-        rendered.innerHTML = html;
-    }
+    var rendered = document.getElementById('md-rendered-' + id);
+    if (rendered) rendered.innerHTML = html;
 }
 
 function setMarkdownSource(id, source) {
-    const mdSource = document.getElementById('md-source-' + id);
-    if (mdSource) {
-        mdSource.textContent = source;
-    }
+    var mdSource = document.getElementById('md-source-' + id);
+    if (mdSource) mdSource.textContent = source;
 }
 
 function clearNotebook() {
@@ -732,35 +770,62 @@ function getSelectedCellId() {
 }
 
 function insertCellAfter(afterId, newId, type, source, outputsHtml, executionCount) {
-    const afterCell = document.getElementById('cell-' + afterId);
+    var container = document.getElementById('notebook-container');
+
+    if (!afterId || afterId === '') {
+        addCell(newId, type, source, outputsHtml, executionCount);
+        var newCell = document.getElementById('cell-' + newId);
+        if (newCell) {
+            var firstCell = container.querySelector('.cell');
+            if (firstCell && firstCell !== newCell) {
+                container.insertBefore(newCell, firstCell);
+            }
+        }
+        rebuildGaps();
+        scheduleHighlightAll();
+        selectCell(newId);
+        if (type === 'code') enterEditMode(newId);
+        return;
+    }
+
+    var afterCell = document.getElementById('cell-' + afterId);
     if (!afterCell) {
         addCell(newId, type, source, outputsHtml, executionCount);
         rebuildGaps();
-        scheduleHighlightAll(); // T029
+        scheduleHighlightAll();
+        selectCell(newId);
+        if (type === 'code') enterEditMode(newId);
         return;
     }
 
     addCell(newId, type, source, outputsHtml, executionCount);
-    const newCell = document.getElementById('cell-' + newId);
-    if (newCell) {
-        afterCell.parentNode.insertBefore(newCell, afterCell.nextSibling);
+    var newCellEl = document.getElementById('cell-' + newId);
+    if (newCellEl) {
+        afterCell.parentNode.insertBefore(newCellEl, afterCell.nextSibling);
     }
     rebuildGaps();
-    scheduleHighlightAll(); // T029
+    scheduleHighlightAll();
+    selectCell(newId);
+    if (type === 'code') enterEditMode(newId);
 }
 
 // Global keyboard handler
 document.addEventListener('keydown', function(e) {
-    if (e.shiftKey && e.key === 'Enter') {
-        // Only handle if not in an editable cell (edit mode handles its own Shift+Enter)
-        const active = document.activeElement;
-        if (active && active.contentEditable === 'true') return;
+    if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (kotlinBridge) kotlinBridge.saveNotebook();
+        return;
+    }
 
+    if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'TEXTAREA' || active.contentEditable === 'true')) return;
         e.preventDefault();
         if (selectedCellId && kotlinBridge) {
-            const cell = document.getElementById('cell-' + selectedCellId);
+            var cell = document.getElementById('cell-' + selectedCellId);
             if (cell && cell.dataset.cellType === 'code') {
                 kotlinBridge.runCell(selectedCellId);
+                moveToNextCell(selectedCellId);
             }
         }
     }

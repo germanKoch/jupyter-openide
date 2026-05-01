@@ -1,5 +1,7 @@
 package com.openide.jupyter.editor
 
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.fileEditor.FileDocumentManagerListener
 import com.intellij.openapi.fileEditor.FileEditor
 import com.intellij.openapi.fileEditor.FileEditorState
 import com.intellij.openapi.project.Project
@@ -62,17 +64,15 @@ class JupyterNotebookEditor(
                 val newCell = Cell(cellType = type)
                 if (afterCellId.isEmpty()) {
                     nb.cells.add(0, newCell)
-                    notebookPanel.addCellToView(newCell)
                 } else {
                     val idx = nb.cells.indexOfFirst { it.id == afterCellId }
                     if (idx >= 0) {
                         nb.cells.add(idx + 1, newCell)
-                        notebookPanel.insertCellAfter(afterCellId, newCell)
                     } else {
                         nb.cells.add(newCell)
-                        notebookPanel.addCellToView(newCell)
                     }
                 }
+                notebookPanel.insertCellAfter(afterCellId, newCell)
                 nb.isDirty = true
                 propertyChangeSupport.firePropertyChange("modified", false, true)
             }
@@ -86,6 +86,19 @@ class JupyterNotebookEditor(
                 propertyChangeSupport.firePropertyChange("modified", false, true)
             }
         }
+
+        notebookPanel.onSaveNotebook = {
+            saveNotebook()
+        }
+
+        val connection = ApplicationManager.getApplication().messageBus.connect(this)
+        connection.subscribe(FileDocumentManagerListener.TOPIC, object : FileDocumentManagerListener {
+            override fun beforeAllDocumentsSaving() {
+                if (notebook?.isDirty == true) {
+                    saveNotebook()
+                }
+            }
+        })
     }
 
     private fun loadNotebook() {
