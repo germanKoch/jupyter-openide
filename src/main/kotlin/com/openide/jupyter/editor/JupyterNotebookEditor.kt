@@ -5,10 +5,13 @@ import com.intellij.openapi.fileEditor.FileEditorState
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.notification.Notification
+import com.intellij.notification.NotificationType
 import com.openide.jupyter.kernel.KernelManager
 import com.openide.jupyter.kernel.KernelRegistry
 import com.openide.jupyter.kernel.KernelStatus
 import com.openide.jupyter.model.*
+import com.openide.jupyter.python.PythonSdkDetector
 import java.beans.PropertyChangeListener
 import java.beans.PropertyChangeSupport
 import javax.swing.*
@@ -52,6 +55,37 @@ class JupyterNotebookEditor(
         notebookPanel.onRunCell = { cellId ->
             executeCell(cellId)
         }
+
+        notebookPanel.onAddCell = { afterCellId, cellType ->
+            notebook?.let { nb ->
+                val type = if (cellType == "markdown") CellType.MARKDOWN else CellType.CODE
+                val newCell = Cell(cellType = type)
+                if (afterCellId.isEmpty()) {
+                    nb.cells.add(0, newCell)
+                    notebookPanel.addCellToView(newCell)
+                } else {
+                    val idx = nb.cells.indexOfFirst { it.id == afterCellId }
+                    if (idx >= 0) {
+                        nb.cells.add(idx + 1, newCell)
+                        notebookPanel.insertCellAfter(afterCellId, newCell)
+                    } else {
+                        nb.cells.add(newCell)
+                        notebookPanel.addCellToView(newCell)
+                    }
+                }
+                nb.isDirty = true
+                propertyChangeSupport.firePropertyChange("modified", false, true)
+            }
+        }
+
+        notebookPanel.onDeleteCell = { cellId ->
+            notebook?.let { nb ->
+                nb.cells.removeAll { it.id == cellId }
+                notebookPanel.removeCellFromView(cellId)
+                nb.isDirty = true
+                propertyChangeSupport.firePropertyChange("modified", false, true)
+            }
+        }
     }
 
     private fun loadNotebook() {
@@ -69,17 +103,39 @@ class JupyterNotebookEditor(
     }
 
     fun startKernel(pythonPath: String) {
-        val km = KernelManager(pythonPath, this)
-        kernelManager = km
-        KernelRegistry.getInstance(project).register(file.path, km)
+        startKernelAsync(pythonPath, null)
+    }
 
-        km.onStatusChanged = { status ->
-            SwingUtilities.invokeLater {
-                statusLabel.text = "Kernel: ${status.name.lowercase()}"
-            }
+    private fun startKernelAsync(pythonPath: String, onReady: (() -> Unit)?) {
+        if (kernelManager != null && kernelManager?.status != KernelStatus.DISCONNECTED) {
+            onReady?.invoke()
+            return
         }
 
-        km.start()
+        SwingUtilities.invokeLater { statusLabel.text = "Kernel: starting..." }
+
+        Thread {
+            try {
+                val km = KernelManager(pythonPath, this@JupyterNotebookEditor)
+                km.onStatusChanged = { status ->
+                    SwingUtilities.invokeLater {
+                        statusLabel.text = "Kernel: ${status.name.lowercase()}"
+                    }
+                }
+                km.start()
+
+                SwingUtilities.invokeLater {
+                    kernelManager = km
+                    KernelRegistry.getInstance(project).register(file.path, km)
+                    onReady?.invoke()
+                }
+            } catch (e: Exception) {
+                SwingUtilities.invokeLater {
+                    statusLabel.text = "Kernel: disconnected"
+                    showNotification("Failed to start kernel: ${e.message}", NotificationType.ERROR)
+                }
+            }
+        }.start()
     }
 
     fun stopKernel() {
@@ -103,7 +159,46 @@ class JupyterNotebookEditor(
     fun getNotebookPanel(): NotebookPanel = notebookPanel
 
     fun executeCell(cellId: String) {
-        val km = kernelManager ?: return
+        val km = kernelManager
+        if (km == null || km.status == KernelStatus.DISCONNECTED) {
+            autoStartKernelAndExecute(cellId)
+            return
+        }
+        doExecuteCell(cellId, km)
+    }
+
+    private fun autoStartKernelAndExecute(cellId: String) {
+        statusLabel.text = "Kernel: detecting Python..."
+
+        Thread {
+            val pythonPath = PythonSdkDetector.detectPythonInterpreter(project, file.path)
+            if (pythonPath == null) {
+                SwingUtilities.invokeLater {
+                    statusLabel.text = "Kernel: no Python"
+                    showNotification("No Python interpreter found. Configure a Python SDK in Project Settings.", NotificationType.WARNING)
+                }
+                return@Thread
+            }
+
+            if (!PythonSdkDetector.checkJupyterInstalled(pythonPath)) {
+                SwingUtilities.invokeLater { statusLabel.text = "Kernel: installing ipykernel..." }
+                val installed = PythonSdkDetector.installJupyter(pythonPath)
+                if (!installed) {
+                    SwingUtilities.invokeLater {
+                        statusLabel.text = "Kernel: install failed"
+                        showNotification("Failed to install ipykernel. Run manually: $pythonPath -m pip install ipykernel", NotificationType.ERROR)
+                    }
+                    return@Thread
+                }
+            }
+
+            startKernelAsync(pythonPath) {
+                doExecuteCell(cellId, kernelManager!!)
+            }
+        }.start()
+    }
+
+    private fun doExecuteCell(cellId: String, km: KernelManager) {
         val cell = notebook?.cells?.find { it.id == cellId } ?: return
         if (cell.cellType != CellType.CODE) return
 
@@ -147,14 +242,19 @@ class JupyterNotebookEditor(
                         cell.outputs.add(output)
                         notebookPanel.appendCellOutput(cell.id, output)
                     }
-                    "execute_reply" -> {
+                    "execute_input" -> {
                         val execCount = content.get("execution_count")?.asInt
                         cell.executionCount = execCount
-                        cell.executionState = CellExecutionState.IDLE
-                        notebookPanel.setCellExecuting(cell.id, false)
                         notebookPanel.setExecutionCount(cell.id, execCount)
-                        km.removeCallback(msgId)
-                        notebook?.isDirty = true
+                    }
+                    "status" -> {
+                        val state = content.get("execution_state")?.asString
+                        if (state == "idle") {
+                            cell.executionState = CellExecutionState.IDLE
+                            notebookPanel.setCellExecuting(cell.id, false)
+                            km.removeCallback(msgId)
+                            notebook?.isDirty = true
+                        }
                     }
                 }
             }
@@ -205,6 +305,10 @@ class JupyterNotebookEditor(
     }
 
     override fun getFile(): VirtualFile = file
+
+    private fun showNotification(content: String, type: NotificationType) {
+        Notification("Jupyter", "Jupyter Notebook", content, type).notify(project)
+    }
 
     override fun dispose() {
         stopKernel()

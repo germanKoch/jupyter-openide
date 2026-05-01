@@ -262,7 +262,7 @@ class KernelManager(
 
     private fun processIopubMessage(frames: List<ByteArray>) {
         val delimiterIdx = frames.indexOfFirst { String(it) == "<IDS|MSG>" }
-        if (delimiterIdx < 0 || frames.size < delimiterIdx + 5) return
+        if (delimiterIdx < 0 || frames.size < delimiterIdx + 6) return
 
         val headerJson = String(frames[delimiterIdx + 2], StandardCharsets.UTF_8)
         val parentHeaderJson = String(frames[delimiterIdx + 3], StandardCharsets.UTF_8)

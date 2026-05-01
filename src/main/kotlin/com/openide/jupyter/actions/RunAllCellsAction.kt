@@ -64,12 +64,17 @@ class RunAllCellsAction : AnAction() {
                                 cell.outputs.add(output)
                                 panel.appendCellOutput(cell.id, output)
                             }
-                            "execute_reply" -> {
+                            "execute_input" -> {
                                 cell.executionCount = content.get("execution_count")?.asInt
-                                panel.setCellExecuting(cell.id, false)
                                 panel.setExecutionCount(cell.id, cell.executionCount)
-                                km.removeCallback(msgId)
-                                done.countDown()
+                            }
+                            "status" -> {
+                                val state = content.get("execution_state")?.asString
+                                if (state == "idle") {
+                                    panel.setCellExecuting(cell.id, false)
+                                    km.removeCallback(msgId)
+                                    done.countDown()
+                                }
                             }
                         }
                     }

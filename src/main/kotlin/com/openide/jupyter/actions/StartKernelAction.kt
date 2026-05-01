@@ -16,7 +16,7 @@ class StartKernelAction : AnAction() {
         val project = e.project ?: return
         val editor = getCurrentNotebookEditor(e) ?: return
 
-        val pythonPath = PythonSdkDetector.detectPythonInterpreter(project)
+        val pythonPath = PythonSdkDetector.detectPythonInterpreter(project, editor.file.path)
         if (pythonPath == null) {
             showNotification(project, "No Python interpreter configured. Please configure a Python SDK in Project Settings.", NotificationType.WARNING)
             return
