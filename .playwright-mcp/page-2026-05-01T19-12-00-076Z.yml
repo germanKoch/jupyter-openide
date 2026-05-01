@@ -1,0 +1,1650 @@
+- generic [ref=e2]:
+  - region
+  - generic [ref=e3]:
+    - link "Skip to content" [ref=e4] [cursor=pointer]:
+      - /url: "#start-of-content"
+    - banner [ref=e6]:
+      - heading "Navigation Menu" [level=2] [ref=e7]
+      - generic [ref=e8]:
+        - link "Homepage" [ref=e10] [cursor=pointer]:
+          - /url: /
+          - img [ref=e11]
+        - generic [ref=e13]:
+          - navigation "Global" [ref=e16]:
+            - list [ref=e17]:
+              - listitem [ref=e18]:
+                - button "Platform" [ref=e20] [cursor=pointer]:
+                  - text: Platform
+                  - img [ref=e21]
+              - listitem [ref=e23]:
+                - button "Solutions" [ref=e25] [cursor=pointer]:
+                  - text: Solutions
+                  - img [ref=e26]
+              - listitem [ref=e28]:
+                - button "Resources" [ref=e30] [cursor=pointer]:
+                  - text: Resources
+                  - img [ref=e31]
+              - listitem [ref=e33]:
+                - button "Open Source" [ref=e35] [cursor=pointer]:
+                  - text: Open Source
+                  - img [ref=e36]
+              - listitem [ref=e38]:
+                - button "Enterprise" [ref=e40] [cursor=pointer]:
+                  - text: Enterprise
+                  - img [ref=e41]
+              - listitem [ref=e43]:
+                - link "Pricing" [ref=e44] [cursor=pointer]:
+                  - /url: https://github.com/pricing
+                  - generic [ref=e45]: Pricing
+          - generic [ref=e46]:
+            - button "Search or jump to…" [ref=e49] [cursor=pointer]:
+              - img [ref=e51]
+            - link "Sign in" [ref=e54] [cursor=pointer]:
+              - /url: /login?return_to=https%3A%2F%2Fgithub.com%2FJetBrains%2Fintellij-platform-plugin-template
+            - link "Sign up" [ref=e55] [cursor=pointer]:
+              - /url: /signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F%3Cuser-name%3E%2F%3Crepo-name%3E&source=header-repo&source_repo=JetBrains%2Fintellij-platform-plugin-template
+            - button "Appearance settings" [ref=e58] [cursor=pointer]:
+              - img
+  - main [ref=e62]:
+    - generic [ref=e63]:
+      - generic [ref=e64]:
+        - generic [ref=e66]:
+          - img [ref=e67]
+          - link "JetBrains" [ref=e70] [cursor=pointer]:
+            - /url: /JetBrains
+          - generic [ref=e71]: /
+          - strong [ref=e72]:
+            - link "intellij-platform-plugin-template" [ref=e73] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template
+          - generic [ref=e74]: Public template
+        - generic [ref=e75]:
+          - list:
+            - listitem [ref=e76]:
+              - link "You must be signed in to change notification settings" [ref=e77] [cursor=pointer]:
+                - /url: /login?return_to=%2FJetBrains%2Fintellij-platform-plugin-template
+                - img [ref=e78]
+                - text: Notifications
+            - listitem [ref=e80]:
+              - link "Fork 806" [ref=e81] [cursor=pointer]:
+                - /url: /login?return_to=%2FJetBrains%2Fintellij-platform-plugin-template
+                - img [ref=e82]
+                - text: Fork
+                - generic "806" [ref=e84]
+            - listitem [ref=e85]:
+              - link "You must be signed in to star a repository" [ref=e87] [cursor=pointer]:
+                - /url: /login?return_to=%2FJetBrains%2Fintellij-platform-plugin-template
+                - img [ref=e88]
+                - text: Star
+                - generic "3722 users starred this repository" [ref=e90]: 3.7k
+      - navigation "Repository" [ref=e91]:
+        - list [ref=e92]:
+          - listitem [ref=e93]:
+            - link "Code" [ref=e94] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template
+              - img [ref=e95]
+              - generic [ref=e97]: Code
+          - listitem [ref=e98]:
+            - link "Issues 26" [ref=e99] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/issues
+              - img [ref=e100]
+              - generic [ref=e103]: Issues
+              - generic "26" [ref=e104]
+          - listitem [ref=e105]:
+            - link "Pull requests 8" [ref=e106] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/pulls
+              - img [ref=e107]
+              - generic [ref=e109]: Pull requests
+              - generic "8" [ref=e110]
+          - listitem [ref=e111]:
+            - link "Actions" [ref=e112] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/actions
+              - img [ref=e113]
+              - generic [ref=e115]: Actions
+          - listitem [ref=e116]:
+            - link "Security and quality" [ref=e117] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/security
+              - img [ref=e118]
+              - generic [ref=e120]: Security and quality
+          - listitem [ref=e121]:
+            - link "Insights" [ref=e122] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/pulse
+              - img [ref=e123]
+              - generic [ref=e125]: Insights
+    - generic [ref=e138]:
+      - heading "JetBrains/intellij-platform-plugin-template" [level=1] [ref=e140]
+      - generic [ref=e141]:
+        - generic [ref=e144]:
+          - generic [ref=e145]:
+            - generic [ref=e146]:
+              - button "main branch" [ref=e148] [cursor=pointer]:
+                - generic [ref=e149]:
+                  - generic [ref=e151]:
+                    - img [ref=e153]
+                    - generic [ref=e156]: main
+                  - generic:
+                    - img
+              - generic [ref=e157]:
+                - link "13 Branches" [ref=e158] [cursor=pointer]:
+                  - /url: /JetBrains/intellij-platform-plugin-template/branches
+                  - generic [ref=e159]:
+                    - generic:
+                      - img
+                    - generic [ref=e161]:
+                      - strong [ref=e162]: "13"
+                      - text: Branches
+                - link "54 Tags" [ref=e163] [cursor=pointer]:
+                  - /url: /JetBrains/intellij-platform-plugin-template/tags
+                  - generic [ref=e164]:
+                    - generic:
+                      - img
+                    - generic [ref=e166]:
+                      - strong [ref=e167]: "54"
+                      - text: Tags
+            - generic [ref=e168]:
+              - generic [ref=e172]:
+                - img [ref=e174]
+                - combobox "Go to file" [ref=e176]
+              - button "Code" [ref=e177] [cursor=pointer]:
+                - generic [ref=e178]:
+                  - generic:
+                    - img
+                  - generic [ref=e179]: Code
+                  - generic:
+                    - img
+          - generic [ref=e180]:
+            - generic [ref=e181]:
+              - heading "Folders and files" [level=2] [ref=e182]
+              - table "Folders and files" [ref=e183]:
+                - rowgroup:
+                  - row "Name Last commit message Last commit date":
+                    - columnheader "Name"
+                    - columnheader "Last commit message":
+                      - generic "Last commit message"
+                    - columnheader "Last commit date":
+                      - generic "Last commit date"
+                - rowgroup [ref=e184]:
+                  - row "Latest commit hsz commits by hsz Update Run Plugin configuration to fix sandbox log file path success Commit 7a43404 · Apr 21, 2026last week History 1,059 Commits" [ref=e185]:
+                    - cell "Latest commit hsz commits by hsz Update Run Plugin configuration to fix sandbox log file path success Commit 7a43404 · Apr 21, 2026last week History 1,059 Commits" [ref=e186]:
+                      - generic [ref=e187]:
+                        - heading "Latest commit" [level=2] [ref=e188]
+                        - generic [ref=e189]:
+                          - generic [ref=e191]:
+                            - link "hsz" [ref=e192] [cursor=pointer]:
+                              - /url: /hsz
+                              - img "hsz" [ref=e193]
+                            - link "commits by hsz" [ref=e194] [cursor=pointer]:
+                              - /url: /JetBrains/intellij-platform-plugin-template/commits?author=hsz
+                              - text: hsz
+                          - generic [ref=e195]:
+                            - link "Update Run Plugin configuration to fix sandbox log file path" [ref=e198] [cursor=pointer]:
+                              - /url: /JetBrains/intellij-platform-plugin-template/commit/7a43404aaf4c12e4aa5d21fb4f02b7765a370627
+                            - button "success" [ref=e199] [cursor=pointer]:
+                              - img [ref=e200]
+                        - generic [ref=e202]:
+                          - generic [ref=e204]:
+                            - link "Commit 7a43404" [ref=e205] [cursor=pointer]:
+                              - /url: /JetBrains/intellij-platform-plugin-template/commit/7a43404aaf4c12e4aa5d21fb4f02b7765a370627
+                              - text: 7a43404
+                            - text: ·
+                            - generic "Apr 21, 2026, 12:55 PM GMT+3" [ref=e206]: Apr 21, 2026last week
+                          - generic [ref=e207]:
+                            - heading "History" [level=2] [ref=e208]
+                            - link "1,059 Commits" [ref=e209] [cursor=pointer]:
+                              - /url: /JetBrains/intellij-platform-plugin-template/commits/main/
+                              - generic [ref=e210]:
+                                - generic:
+                                  - img
+                                - generic [ref=e211]: 1,059 Commits
+                  - row ".github, (Directory) Update README, changelog for 2.5.0 release and clean up template docu… Apr 20, 20262 weeks ago" [ref=e212]:
+                    - cell ".github, (Directory)" [ref=e213]:
+                      - generic [ref=e214]:
+                        - img [ref=e215]
+                        - link ".github, (Directory)" [ref=e220] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/tree/main/.github
+                          - text: .github
+                    - cell "Update README, changelog for 2.5.0 release and clean up template docu…" [ref=e221]:
+                      - link "Update README, changelog for 2.5.0 release and clean up template docu…" [ref=e224] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/ce889c71406f79186eb8f8de1d695ee7e4e9b6c8
+                    - cell "Apr 20, 20262 weeks ago" [ref=e225]:
+                      - generic [ref=e226]: Apr 20, 20262 weeks ago
+                  - row ".idea, (Directory) Set JDK 21 in settings Aug 30, 20259 months ago" [ref=e227]:
+                    - cell ".idea, (Directory)" [ref=e228]:
+                      - generic [ref=e229]:
+                        - img [ref=e230]
+                        - link ".idea, (Directory)" [ref=e235] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/tree/main/.idea
+                          - text: .idea
+                    - cell "Set JDK 21 in settings" [ref=e236]:
+                      - link "Set JDK 21 in settings" [ref=e239] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/ce1a11a6b9b8904f8576281ab001d841e2d6ecf0
+                    - cell "Aug 30, 20259 months ago" [ref=e240]:
+                      - generic [ref=e241]: Aug 30, 20259 months ago
+                  - row ".run, (Directory) Update Run Plugin configuration to fix sandbox log file path Apr 21, 2026last week" [ref=e242]:
+                    - cell ".run, (Directory)" [ref=e243]:
+                      - generic [ref=e244]:
+                        - img [ref=e245]
+                        - link ".run, (Directory)" [ref=e250] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/tree/main/.run
+                          - text: .run
+                    - cell "Update Run Plugin configuration to fix sandbox log file path" [ref=e251]:
+                      - link "Update Run Plugin configuration to fix sandbox log file path" [ref=e254] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/7a43404aaf4c12e4aa5d21fb4f02b7765a370627
+                    - cell "Apr 21, 2026last week" [ref=e255]:
+                      - generic [ref=e256]: Apr 21, 2026last week
+                  - row "gradle/wrapper, (Directory) Remove libs.versions.toml and inline plugin versions in build scrip… Apr 17, 20262 weeks ago" [ref=e257]:
+                    - cell "gradle/wrapper, (Directory)" [ref=e258]:
+                      - generic [ref=e259]:
+                        - img [ref=e260]
+                        - link "gradle/wrapper, (Directory)" [ref=e265] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/tree/main/gradle/wrapper
+                          - text: gradle/wrapper
+                    - cell "Remove libs.versions.toml and inline plugin versions in build scrip…" [ref=e266]:
+                      - link "Remove libs.versions.toml and inline plugin versions in build scrip…" [ref=e269] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/c4a85898dc60f06bf815c74c6ae1106a97c8f354
+                        - text: Remove
+                        - code [ref=e270]: libs.versions.toml
+                        - text: and inline plugin versions in build scrip…
+                    - cell "Apr 17, 20262 weeks ago" [ref=e271]:
+                      - generic [ref=e272]: Apr 17, 20262 weeks ago
+                  - row "src, (Directory) Added example code – MyProjectActivity Mar 28, 2025last year" [ref=e273]:
+                    - cell "src, (Directory)" [ref=e274]:
+                      - generic [ref=e275]:
+                        - img [ref=e276]
+                        - link "src, (Directory)" [ref=e281] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/tree/main/src
+                          - text: src
+                    - cell "Added example code – MyProjectActivity" [ref=e282]:
+                      - link "Added example code – MyProjectActivity" [ref=e285] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/a8f4883cb9df0a4d62e1f157db155716718024dd
+                        - text: Added example code –
+                        - code [ref=e286]: MyProjectActivity
+                    - cell "Mar 28, 2025last year" [ref=e287]:
+                      - generic [ref=e288]: Mar 28, 2025last year
+                  - row ".gitignore, (File) Remove Qodana configuration, dependencies, and related workflow steps. Apr 17, 20262 weeks ago" [ref=e289]:
+                    - cell ".gitignore, (File)" [ref=e290]:
+                      - generic [ref=e291]:
+                        - img [ref=e292]
+                        - link ".gitignore, (File)" [ref=e297] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.gitignore
+                          - text: .gitignore
+                    - cell "Remove Qodana configuration, dependencies, and related workflow steps." [ref=e298]:
+                      - link "Remove Qodana configuration, dependencies, and related workflow steps." [ref=e301] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/a82d9d01c68ff19ecffa5a26579686b46467e034
+                    - cell "Apr 17, 20262 weeks ago" [ref=e302]:
+                      - generic [ref=e303]: Apr 17, 20262 weeks ago
+                  - row "CHANGELOG.md, (File) Update Run Plugin configuration to fix sandbox log file path Apr 21, 2026last week" [ref=e304]:
+                    - cell "CHANGELOG.md, (File)" [ref=e305]:
+                      - generic [ref=e306]:
+                        - img [ref=e307]
+                        - link "CHANGELOG.md, (File)" [ref=e312] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/blob/main/CHANGELOG.md
+                          - text: CHANGELOG.md
+                    - cell "Update Run Plugin configuration to fix sandbox log file path" [ref=e313]:
+                      - link "Update Run Plugin configuration to fix sandbox log file path" [ref=e316] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/7a43404aaf4c12e4aa5d21fb4f02b7765a370627
+                    - cell "Apr 21, 2026last week" [ref=e317]:
+                      - generic [ref=e318]: Apr 21, 2026last week
+                  - row "CODE_OF_CONDUCT.md, (File) Added CODE_OF_CONDUCT Jul 20, 20206 years ago" [ref=e319]:
+                    - cell "CODE_OF_CONDUCT.md, (File)" [ref=e320]:
+                      - generic [ref=e321]:
+                        - img [ref=e322]
+                        - link "CODE_OF_CONDUCT.md, (File)" [ref=e327] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/blob/main/CODE_OF_CONDUCT.md
+                          - text: CODE_OF_CONDUCT.md
+                    - cell "Added CODE_OF_CONDUCT" [ref=e328]:
+                      - link "Added CODE_OF_CONDUCT" [ref=e331] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/69f11b1ff935e25622e286261335fc7ee28b9e64
+                    - cell "Jul 20, 20206 years ago" [ref=e332]:
+                      - generic [ref=e333]: Jul 20, 20206 years ago
+                  - row "LICENSE, (File) Update LICENSE file Jan 29, 20215 years ago" [ref=e334]:
+                    - cell "LICENSE, (File)" [ref=e335]:
+                      - generic [ref=e336]:
+                        - img [ref=e337]
+                        - link "LICENSE, (File)" [ref=e342] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/blob/main/LICENSE
+                          - text: LICENSE
+                    - cell "Update LICENSE file" [ref=e343]:
+                      - link "Update LICENSE file" [ref=e346] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/5634d802dae19d3ab4d3c49f7a6eac371f8487ad
+                    - cell "Jan 29, 20215 years ago" [ref=e347]:
+                      - generic [ref=e348]: Jan 29, 20215 years ago
+                  - row "README.md, (File) Update README, changelog for 2.5.0 release and clean up template docu… Apr 20, 20262 weeks ago" [ref=e349]:
+                    - cell "README.md, (File)" [ref=e350]:
+                      - generic [ref=e351]:
+                        - img [ref=e352]
+                        - link "README.md, (File)" [ref=e357] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/blob/main/README.md
+                          - text: README.md
+                    - cell "Update README, changelog for 2.5.0 release and clean up template docu…" [ref=e358]:
+                      - link "Update README, changelog for 2.5.0 release and clean up template docu…" [ref=e361] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/ce889c71406f79186eb8f8de1d695ee7e4e9b6c8
+                    - cell "Apr 20, 20262 weeks ago" [ref=e362]:
+                      - generic [ref=e363]: Apr 20, 20262 weeks ago
+                  - row "build.gradle.kts, (File) Update README, changelog for 2.5.0 release and clean up template docu… Apr 20, 20262 weeks ago" [ref=e364]:
+                    - cell "build.gradle.kts, (File)" [ref=e365]:
+                      - generic [ref=e366]:
+                        - img [ref=e367]
+                        - link "build.gradle.kts, (File)" [ref=e372] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/blob/main/build.gradle.kts
+                          - text: build.gradle.kts
+                    - cell "Update README, changelog for 2.5.0 release and clean up template docu…" [ref=e373]:
+                      - link "Update README, changelog for 2.5.0 release and clean up template docu…" [ref=e376] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/ce889c71406f79186eb8f8de1d695ee7e4e9b6c8
+                    - cell "Apr 20, 20262 weeks ago" [ref=e377]:
+                      - generic [ref=e378]: Apr 20, 20262 weeks ago
+                  - row "gradle.properties, (File) 2.5.0 Apr 17, 20262 weeks ago" [ref=e379]:
+                    - cell "gradle.properties, (File)" [ref=e380]:
+                      - generic [ref=e381]:
+                        - img [ref=e382]
+                        - link "gradle.properties, (File)" [ref=e387] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/blob/main/gradle.properties
+                          - text: gradle.properties
+                    - cell "2.5.0" [ref=e388]:
+                      - link "2.5.0" [ref=e391] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/97937b34882d2b7274e23afb918f79370bbde3a1
+                    - cell "Apr 17, 20262 weeks ago" [ref=e392]:
+                      - generic [ref=e393]: Apr 17, 20262 weeks ago
+                  - row "gradlew, (File) Upgrade Gradle Wrapper to 9.4.1 Mar 20, 20262 months ago" [ref=e394]:
+                    - cell "gradlew, (File)" [ref=e395]:
+                      - generic [ref=e396]:
+                        - img [ref=e397]
+                        - link "gradlew, (File)" [ref=e402] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/blob/main/gradlew
+                          - text: gradlew
+                    - cell "Upgrade Gradle Wrapper to 9.4.1" [ref=e403]:
+                      - link "Upgrade Gradle Wrapper to 9.4.1" [ref=e406] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/6ca3688f3bfded3fdbd655aa8303567e3a70c3d1
+                        - text: Upgrade Gradle Wrapper to
+                        - code [ref=e407]: 9.4.1
+                    - cell "Mar 20, 20262 months ago" [ref=e408]:
+                      - generic [ref=e409]: Mar 20, 20262 months ago
+                  - row "gradlew.bat, (File) Update platformVersion to 2025.1.6 Oct 27, 20257 months ago" [ref=e410]:
+                    - cell "gradlew.bat, (File)" [ref=e411]:
+                      - generic [ref=e412]:
+                        - img [ref=e413]
+                        - link "gradlew.bat, (File)" [ref=e418] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/blob/main/gradlew.bat
+                          - text: gradlew.bat
+                    - cell "Update platformVersion to 2025.1.6" [ref=e419]:
+                      - link "Update platformVersion to 2025.1.6" [ref=e422] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/dfe87322e964b236299058536ef025e0ddc4b242
+                        - text: Update
+                        - code [ref=e423]: platformVersion
+                        - text: to
+                        - code [ref=e424]: 2025.1.6
+                    - cell "Oct 27, 20257 months ago" [ref=e425]:
+                      - generic [ref=e426]: Oct 27, 20257 months ago
+                  - row "settings.gradle.kts, (File) Remove libs.versions.toml and inline plugin versions in build scrip… Apr 17, 20262 weeks ago" [ref=e427]:
+                    - cell "settings.gradle.kts, (File)" [ref=e428]:
+                      - generic [ref=e429]:
+                        - img [ref=e430]
+                        - link "settings.gradle.kts, (File)" [ref=e435] [cursor=pointer]:
+                          - /url: /JetBrains/intellij-platform-plugin-template/blob/main/settings.gradle.kts
+                          - text: settings.gradle.kts
+                    - cell "Remove libs.versions.toml and inline plugin versions in build scrip…" [ref=e436]:
+                      - link "Remove libs.versions.toml and inline plugin versions in build scrip…" [ref=e439] [cursor=pointer]:
+                        - /url: /JetBrains/intellij-platform-plugin-template/commit/c4a85898dc60f06bf815c74c6ae1106a97c8f354
+                        - text: Remove
+                        - code [ref=e440]: libs.versions.toml
+                        - text: and inline plugin versions in build scrip…
+                    - cell "Apr 17, 20262 weeks ago" [ref=e441]:
+                      - generic [ref=e442]: Apr 17, 20262 weeks ago
+            - generic [ref=e444]:
+              - generic [ref=e445]:
+                - heading "Repository files navigation" [level=2] [ref=e446]
+                - navigation "Repository files" [ref=e447]:
+                  - list [ref=e448]:
+                    - listitem [ref=e449]:
+                      - link "README" [ref=e450] [cursor=pointer]:
+                        - /url: "#"
+                        - img [ref=e452]
+                        - generic [ref=e454]: README
+                    - listitem [ref=e455]:
+                      - link "Code of conduct" [ref=e456] [cursor=pointer]:
+                        - /url: "#"
+                        - img [ref=e458]
+                        - generic [ref=e460]: Code of conduct
+                    - listitem [ref=e461]:
+                      - link "Apache-2.0 license" [ref=e462] [cursor=pointer]:
+                        - /url: "#"
+                        - img [ref=e464]
+                        - generic [ref=e466]: Apache-2.0 license
+                - button "Outline" [ref=e467] [cursor=pointer]:
+                  - img [ref=e468]
+              - article [ref=e471]:
+                - generic [ref=e472]:
+                  - heading "IntelliJ Platform Plugin Template" [level=1] [ref=e473]
+                  - 'link "Permalink: IntelliJ Platform Plugin Template" [ref=e474] [cursor=pointer]':
+                    - /url: "#intellij-platform-plugin-template"
+                    - img [ref=e475]
+                - paragraph [ref=e477]:
+                  - link "official JetBrains project" [ref=e478] [cursor=pointer]:
+                    - /url: https://github.com/JetBrains/.github/blob/main/profile/README.md
+                    - img "official JetBrains project" [ref=e479]
+                  - link "Twitter Follow" [ref=e480] [cursor=pointer]:
+                    - /url: https://x.com/JBPlatform
+                    - img "Twitter Follow" [ref=e481]
+                  - link "Build" [ref=e482] [cursor=pointer]:
+                    - /url: https://github.com/JetBrains/intellij-platform-plugin-template/actions?query=workflow%3ABuild
+                    - img "Build" [ref=e483]
+                - paragraph [ref=e484]:
+                  - link "IntelliJ Platform Plugin Template" [ref=e485] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/readme/intellij-platform-plugin-template-light.svg#gh-light-mode-only
+                    - img "IntelliJ Platform Plugin Template" [ref=e486]
+                - generic [ref=e487]:
+                  - paragraph [ref=e488]:
+                    - img [ref=e489]
+                    - text: Note
+                  - paragraph [ref=e491]:
+                    - text: Click the
+                    - generic [ref=e492]: Use this template
+                    - text: button and clone it in IntelliJ IDEA.
+                - paragraph [ref=e493]:
+                  - strong [ref=e494]: IntelliJ Platform Plugin Template
+                  - text: is a repository that provides a pure template to make it easier to create a new plugin project (check the
+                  - link "Creating a repository from a template" [ref=e495] [cursor=pointer]:
+                    - /url: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template
+                  - text: article).
+                - paragraph [ref=e496]: The main goal of this template is to speed up the setup phase of plugin development for both new and experienced developers by preconfiguring the project scaffold and CI, linking to the proper documentation pages, and keeping everything organized.
+                - paragraph [ref=e497]:
+                  - text: "If you're still not quite sure what this is all about, read our introduction:"
+                  - link "What is the IntelliJ Platform?" [ref=e498] [cursor=pointer]:
+                    - /url: https://plugins.jetbrains.com/docs/intellij/intellij-platform.html?from=IJPluginTemplate
+                - generic [ref=e499]:
+                  - paragraph [ref=e500]:
+                    - img [ref=e501]
+                    - text: Note
+                  - paragraph [ref=e503]:
+                    - text: Click the
+                    - generic [ref=e504]: Watch
+                    - text: button on the top to be notified about releases containing new features and fixes.
+                - generic [ref=e505]:
+                  - heading "Table of contents" [level=3] [ref=e506]
+                  - 'link "Permalink: Table of contents" [ref=e507] [cursor=pointer]':
+                    - /url: "#table-of-contents"
+                    - img [ref=e508]
+                - paragraph [ref=e510]: "In this README, we will highlight the following elements of template-project creation:"
+                - list [ref=e511]:
+                  - listitem [ref=e512]:
+                    - link "Getting started" [ref=e513] [cursor=pointer]:
+                      - /url: "#getting-started"
+                  - listitem [ref=e514]:
+                    - link "Gradle configuration" [ref=e515] [cursor=pointer]:
+                      - /url: "#gradle-configuration"
+                  - listitem [ref=e516]:
+                    - link "Plugin template structure" [ref=e517] [cursor=pointer]:
+                      - /url: "#plugin-template-structure"
+                  - listitem [ref=e518]:
+                    - link "Plugin configuration file" [ref=e519] [cursor=pointer]:
+                      - /url: "#plugin-configuration-file"
+                  - listitem [ref=e520]:
+                    - link "Sample code" [ref=e521] [cursor=pointer]:
+                      - /url: "#sample-code"
+                    - text: ":"
+                    - list [ref=e522]:
+                      - listitem [ref=e523]: startup activity – project-open sample
+                      - listitem [ref=e524]: services – project-level service
+                      - listitem [ref=e525]: tool window – sample UI entry point
+                  - listitem [ref=e526]:
+                    - link "Testing" [ref=e527] [cursor=pointer]:
+                      - /url: "#testing"
+                    - list [ref=e528]:
+                      - listitem [ref=e529]:
+                        - link "Functional tests" [ref=e530] [cursor=pointer]:
+                          - /url: "#functional-tests"
+                      - listitem [ref=e531]:
+                        - link "UI tests" [ref=e532] [cursor=pointer]:
+                          - /url: "#ui-tests"
+                  - listitem [ref=e533]:
+                    - link "Predefined Run/Debug configurations" [ref=e534] [cursor=pointer]:
+                      - /url: "#predefined-rundebug-configurations"
+                  - listitem [ref=e535]:
+                    - link "Continuous integration" [ref=e536] [cursor=pointer]:
+                      - /url: "#continuous-integration"
+                    - text: based on GitHub Actions
+                    - list [ref=e537]:
+                      - listitem [ref=e538]:
+                        - link "Dependencies management" [ref=e539] [cursor=pointer]:
+                          - /url: "#dependencies-management"
+                        - text: with Dependabot
+                      - listitem [ref=e540]:
+                        - link "Changelog maintenance" [ref=e541] [cursor=pointer]:
+                          - /url: "#changelog-maintenance"
+                        - text: with the Gradle Changelog Plugin
+                      - listitem [ref=e542]:
+                        - link "Release flow" [ref=e543] [cursor=pointer]:
+                          - /url: "#release-flow"
+                        - text: using GitHub Releases
+                      - listitem [ref=e544]:
+                        - link "Plugin signing" [ref=e545] [cursor=pointer]:
+                          - /url: "#plugin-signing"
+                        - text: with Marketplace signing
+                      - listitem [ref=e546]:
+                        - link "Publishing the plugin" [ref=e547] [cursor=pointer]:
+                          - /url: "#publishing-the-plugin"
+                        - text: with the IntelliJ Platform Gradle Plugin
+                  - listitem [ref=e548]:
+                    - link "FAQ" [ref=e549] [cursor=pointer]:
+                      - /url: "#faq"
+                  - listitem [ref=e550]:
+                    - link "Useful links" [ref=e551] [cursor=pointer]:
+                      - /url: "#useful-links"
+                - generic [ref=e552]:
+                  - heading "Getting started" [level=2] [ref=e553]
+                  - 'link "Permalink: Getting started" [ref=e554] [cursor=pointer]':
+                    - /url: "#getting-started"
+                    - img [ref=e555]
+                - paragraph [ref=e557]: Before we dive into plugin development and everything related to it, it's worth mentioning the benefits of using GitHub Templates. By creating a new project using the current template, you start with no history or reference to this repository. This allows you to create a new repository easily without copying and pasting previous content, cloning repositories, or clearing the history manually.
+                - paragraph [ref=e558]:
+                  - text: All you have to do is click the
+                  - generic [ref=e559]: Use this template
+                  - text: button (you must be logged in with your GitHub account).
+                - paragraph [ref=e560]:
+                  - link "Use this template" [ref=e561] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/readme/use-this-template.png
+                    - img "Use this template" [ref=e562]
+                - paragraph [ref=e563]:
+                  - text: After using the template to create your blank project, the
+                  - link "Template Cleanup" [ref=e564] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/workflows/template-cleanup.yml
+                  - text: workflow will be triggered to override or remove any template-specific configurations, such as the plugin name, current changelog, etc. Once this is complete, open the newly created project's
+                  - emphasis [ref=e565]: Settings | Actions | General
+                  - text: page and enable option
+                  - emphasis [ref=e566]: Allow GitHub Actions to create and approve pull requests
+                  - text: .
+                - paragraph [ref=e567]:
+                  - text: Now the project is ready to be cloned to your local environment and opened with
+                  - link "IntelliJ IDEA" [ref=e568] [cursor=pointer]:
+                    - /url: https://www.jetbrains.com/idea/download
+                  - text: .
+                - paragraph [ref=e569]:
+                  - text: The most convenient way for getting your new project from GitHub is the
+                  - generic [ref=e570]: Get from VCS
+                  - text: action available on the Welcome Screen, where you can filter your GitHub repository by its name.
+                - paragraph [ref=e571]:
+                  - link "Get from Version Control" [ref=e572] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/readme/get-from-version-control.png
+                    - img "Get from Version Control" [ref=e573]
+                - paragraph [ref=e574]:
+                  - text: The next step, after opening your project in IntelliJ IDEA, is to set the proper
+                  - generic [ref=e575]: SDK
+                  - text: to Java in version
+                  - code [ref=e576]: "21"
+                  - text: within the
+                  - link "Project Structure settings" [ref=e577] [cursor=pointer]:
+                    - /url: https://www.jetbrains.com/help/idea/project-settings-and-structure.html
+                  - text: .
+                - paragraph [ref=e578]:
+                  - link "Project Structure — SDK" [ref=e579] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/readme/project-structure-sdk.png
+                    - img "Project Structure — SDK" [ref=e580]
+                - paragraph [ref=e581]:
+                  - text: For the last step, review the project metadata in
+                  - link "gradle.properties" [ref=e582] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/gradle.properties
+                    - code [ref=e583]: gradle.properties
+                  - text: and
+                  - link "plugin.xml" [ref=e584] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/src/main/resources/META-INF/plugin.xml
+                    - code [ref=e585]: plugin.xml
+                  - text: ", then"
+                  - emphasis [ref=e586]: optionally
+                  - text: move sources from the generated package to the one that works best for you. Then you can get to work implementing your ideas.
+                - generic [ref=e587]:
+                  - paragraph [ref=e588]:
+                    - img [ref=e589]
+                    - text: Note
+                  - paragraph [ref=e591]:
+                    - text: To use Java in your plugin, create the
+                    - code [ref=e592]: /src/main/java
+                    - text: directory.
+                - generic [ref=e593]:
+                  - heading "Gradle configuration" [level=2] [ref=e594]
+                  - 'link "Permalink: Gradle configuration" [ref=e595] [cursor=pointer]':
+                    - /url: "#gradle-configuration"
+                    - img [ref=e596]
+                - paragraph [ref=e598]:
+                  - text: The recommended method for plugin development involves using the
+                  - link "Gradle" [ref=e599] [cursor=pointer]:
+                    - /url: https://gradle.org
+                  - text: setup with the
+                  - link "intellij-platform-gradle-plugin" [ref=e600] [cursor=pointer]:
+                    - /url: https://github.com/JetBrains/intellij-platform-gradle-plugin
+                  - text: installed. The IntelliJ Platform Gradle Plugin makes it possible to run the IDE with your plugin and publish your plugin to JetBrains Marketplace.
+                - generic [ref=e601]:
+                  - paragraph [ref=e602]:
+                    - img [ref=e603]
+                    - text: Note
+                  - paragraph [ref=e605]: Make sure to always upgrade to the latest version of IntelliJ Platform Gradle Plugin.
+                - paragraph [ref=e606]:
+                  - text: A project built using the IntelliJ Platform Plugin Template includes a Gradle configuration already set up. Feel free to read through the
+                  - link "Using Gradle" [ref=e607] [cursor=pointer]:
+                    - /url: https://plugins.jetbrains.com/docs/intellij/developing-plugins.html?from=IJPluginTemplate
+                  - text: articles to understand your build better and learn how to customize it.
+                - paragraph [ref=e608]: "The most significant parts of the current configuration are:"
+                - list [ref=e609]:
+                  - listitem [ref=e610]:
+                    - text: Integration with the
+                    - link "intellij-platform-gradle-plugin" [ref=e611] [cursor=pointer]:
+                      - /url: https://github.com/JetBrains/intellij-platform-gradle-plugin
+                    - text: for smoother development.
+                  - listitem [ref=e612]:
+                    - text: Repository configuration moved to
+                    - link "settings.gradle.kts" [ref=e613] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/settings.gradle.kts
+                      - code [ref=e614]: settings.gradle.kts
+                    - text: using the IntelliJ Platform repositories extension.
+                  - listitem [ref=e615]:
+                    - text: Configuration written with
+                    - link "Gradle Kotlin DSL" [ref=e616] [cursor=pointer]:
+                      - /url: https://docs.gradle.org/current/userguide/kotlin_dsl.html
+                    - text: .
+                  - listitem [ref=e617]: Support for Kotlin and Java implementation.
+                  - listitem [ref=e618]: Plugin and dependency versions are declared directly in the Gradle build files instead of a version catalog.
+                  - listitem [ref=e619]:
+                    - text: Integration with the
+                    - link "gradle-changelog-plugin" [ref=e620] [cursor=pointer]:
+                      - /url: https://github.com/JetBrains/gradle-changelog-plugin
+                    - text: ", which automatically patches the change notes based on the"
+                    - code [ref=e621]: CHANGELOG.md
+                    - text: file.
+                  - listitem [ref=e622]:
+                    - link "Plugin publishing" [ref=e623] [cursor=pointer]:
+                      - /url: https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginTemplate
+                    - text: through the
+                    - code [ref=e624]: publishPlugin
+                    - text: task and GitHub Actions workflows.
+                - paragraph [ref=e625]:
+                  - text: For more details regarding Kotlin integration, please see
+                  - link "Kotlin for Plugin Developers" [ref=e626] [cursor=pointer]:
+                    - /url: https://plugins.jetbrains.com/docs/intellij/using-kotlin.html?from=IJPluginTemplate
+                  - text: in the IntelliJ Platform Plugin SDK documentation.
+                - generic [ref=e627]:
+                  - heading "Gradle properties" [level=3] [ref=e628]
+                  - 'link "Permalink: Gradle properties" [ref=e629] [cursor=pointer]':
+                    - /url: "#gradle-properties"
+                    - img [ref=e630]
+                - paragraph [ref=e632]:
+                  - text: The project-specific configuration file
+                  - link "gradle.properties" [ref=e633] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/gradle.properties
+                    - code [ref=e634]: gradle.properties
+                  - text: "now contains only the values expected to vary between repositories created from this template:"
+                - table [ref=e636]:
+                  - rowgroup [ref=e637]:
+                    - row "Property name Description" [ref=e638]:
+                      - columnheader "Property name" [ref=e639]
+                      - columnheader "Description" [ref=e640]
+                  - rowgroup [ref=e641]:
+                    - row "group Project group and default base package for the sample sources." [ref=e642]:
+                      - cell "group" [ref=e643]:
+                        - code [ref=e644]: group
+                      - cell "Project group and default base package for the sample sources." [ref=e645]
+                    - row "version Current plugin version in SemVer format." [ref=e646]:
+                      - cell "version" [ref=e647]:
+                        - code [ref=e648]: version
+                      - cell "Current plugin version in SemVer format." [ref=e649]:
+                        - text: Current plugin version in
+                        - link "SemVer" [ref=e650] [cursor=pointer]:
+                          - /url: https://semver.org
+                        - text: format.
+                    - row "pluginRepositoryUrl Repository URL used for generating URLs by the Gradle Changelog Plugin" [ref=e651]:
+                      - cell "pluginRepositoryUrl" [ref=e652]:
+                        - code [ref=e653]: pluginRepositoryUrl
+                      - cell "Repository URL used for generating URLs by the Gradle Changelog Plugin" [ref=e654]:
+                        - text: Repository URL used for generating URLs by the
+                        - link "Gradle Changelog Plugin" [ref=e655] [cursor=pointer]:
+                          - /url: https://github.com/JetBrains/gradle-changelog-plugin
+                - paragraph [ref=e656]: "The remaining plugin metadata lives closer to where it is used:"
+                - list [ref=e657]:
+                  - listitem [ref=e658]:
+                    - link "settings.gradle.kts" [ref=e659] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/settings.gradle.kts
+                      - code [ref=e660]: settings.gradle.kts
+                    - text: declares Gradle plugin versions and repository management.
+                  - listitem [ref=e661]:
+                    - link "build.gradle.kts" [ref=e662] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/build.gradle.kts
+                      - code [ref=e663]: build.gradle.kts
+                    - text: declares the target IntelliJ Platform version and project dependencies.
+                  - listitem [ref=e664]:
+                    - link "plugin.xml" [ref=e665] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/src/main/resources/META-INF/plugin.xml
+                      - code [ref=e666]: plugin.xml
+                    - text: contains the plugin
+                    - code [ref=e667]: id
+                    - text: ","
+                    - code [ref=e668]: name
+                    - text: ","
+                    - code [ref=e669]: vendor
+                    - text: ", and extension registrations."
+                - paragraph [ref=e670]:
+                  - text: In addition, extra behaviors are configured through the
+                  - link "gradle.properties" [ref=e671] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/gradle.properties
+                    - code [ref=e672]: gradle.properties
+                  - text: "file, such as:"
+                - table [ref=e674]:
+                  - rowgroup [ref=e675]:
+                    - row "Property name Value Description" [ref=e676]:
+                      - columnheader "Property name" [ref=e677]
+                      - columnheader "Value" [ref=e678]
+                      - columnheader "Description" [ref=e679]
+                  - rowgroup [ref=e680]:
+                    - row "kotlin.stdlib.default.dependency false Opt-out flag for bundling Kotlin standard library" [ref=e681]:
+                      - cell "kotlin.stdlib.default.dependency" [ref=e682]:
+                        - code [ref=e683]: kotlin.stdlib.default.dependency
+                      - cell "false" [ref=e684]:
+                        - code [ref=e685]: "false"
+                      - cell "Opt-out flag for bundling Kotlin standard library" [ref=e686]:
+                        - text: Opt-out flag for bundling
+                        - link "Kotlin standard library" [ref=e687] [cursor=pointer]:
+                          - /url: https://plugins.jetbrains.com/docs/intellij/using-kotlin.html?from=IJPluginTemplate#kotlin-standard-library
+                    - row "org.gradle.configuration-cache true Enable Gradle Configuration Cache" [ref=e688]:
+                      - cell "org.gradle.configuration-cache" [ref=e689]:
+                        - code [ref=e690]: org.gradle.configuration-cache
+                      - cell "true" [ref=e691]:
+                        - code [ref=e692]: "true"
+                      - cell "Enable Gradle Configuration Cache" [ref=e693]:
+                        - text: Enable
+                        - link "Gradle Configuration Cache" [ref=e694] [cursor=pointer]:
+                          - /url: https://docs.gradle.org/current/userguide/configuration_cache.html
+                    - row "org.gradle.caching true Enable Gradle Build Cache" [ref=e695]:
+                      - cell "org.gradle.caching" [ref=e696]:
+                        - code [ref=e697]: org.gradle.caching
+                      - cell "true" [ref=e698]:
+                        - code [ref=e699]: "true"
+                      - cell "Enable Gradle Build Cache" [ref=e700]:
+                        - text: Enable
+                        - link "Gradle Build Cache" [ref=e701] [cursor=pointer]:
+                          - /url: https://docs.gradle.org/current/userguide/build_cache.html
+                - generic [ref=e702]:
+                  - heading "Environment variables" [level=3] [ref=e703]
+                  - 'link "Permalink: Environment variables" [ref=e704] [cursor=pointer]':
+                    - /url: "#environment-variables"
+                    - img [ref=e705]
+                - paragraph [ref=e707]: Some values used during signing and publishing should not be stored in project files.
+                - paragraph [ref=e708]:
+                  - text: Provide them through local
+                  - emphasis [ref=e709]: Run/Debug Configurations
+                  - text: or on CI, for example in GitHub under
+                  - code [ref=e710]: Settings > Secrets and variables > Actions
+                  - text: .
+                - paragraph [ref=e711]:
+                  - text: The current template uses the following variables for the
+                  - link "plugin signing" [ref=e712] [cursor=pointer]:
+                    - /url: "#plugin-signing"
+                  - text: and
+                  - link "publishing" [ref=e713] [cursor=pointer]:
+                    - /url: "#publishing-the-plugin"
+                  - text: "flow:"
+                - table [ref=e715]:
+                  - rowgroup [ref=e716]:
+                    - row "Environment variable name Description" [ref=e717]:
+                      - columnheader "Environment variable name" [ref=e718]
+                      - columnheader "Description" [ref=e719]
+                  - rowgroup [ref=e720]:
+                    - 'row "PRIVATE_KEY Certificate private key, should contain: -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----" [ref=e721]':
+                      - cell "PRIVATE_KEY" [ref=e722]:
+                        - code [ref=e723]: PRIVATE_KEY
+                      - 'cell "Certificate private key, should contain: -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----" [ref=e724]':
+                        - text: "Certificate private key, should contain:"
+                        - code [ref=e725]: "-----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----"
+                    - row "PRIVATE_KEY_PASSWORD Password used for encrypting the certificate file." [ref=e726]:
+                      - cell "PRIVATE_KEY_PASSWORD" [ref=e727]:
+                        - code [ref=e728]: PRIVATE_KEY_PASSWORD
+                      - cell "Password used for encrypting the certificate file." [ref=e729]
+                    - 'row "CERTIFICATE_CHAIN Certificate chain, should contain: -----BEGIN CERTIFICATE----- ... -----END CERTIFICATE----" [ref=e730]':
+                      - cell "CERTIFICATE_CHAIN" [ref=e731]:
+                        - code [ref=e732]: CERTIFICATE_CHAIN
+                      - 'cell "Certificate chain, should contain: -----BEGIN CERTIFICATE----- ... -----END CERTIFICATE----" [ref=e733]':
+                        - text: "Certificate chain, should contain:"
+                        - code [ref=e734]: "-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE----"
+                    - row "PUBLISH_TOKEN Publishing token generated in your JetBrains Marketplace profile dashboard." [ref=e735]:
+                      - cell "PUBLISH_TOKEN" [ref=e736]:
+                        - code [ref=e737]: PUBLISH_TOKEN
+                      - cell "Publishing token generated in your JetBrains Marketplace profile dashboard." [ref=e738]
+                - paragraph [ref=e739]: For more details on how to generate proper values, check the relevant sections mentioned above.
+                - paragraph [ref=e740]:
+                  - text: To configure GitHub secret environment variables, go to the
+                  - code [ref=e741]: ⚙️ Settings > Secrets and variables > Actions
+                  - text: "section of your project repository:"
+                - paragraph [ref=e742]:
+                  - link "Settings > Secrets" [ref=e743] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/readme/settings-secrets.png
+                    - img "Settings > Secrets" [ref=e744]
+                - generic [ref=e745]:
+                  - heading "Plugin template structure" [level=2] [ref=e746]
+                  - 'link "Permalink: Plugin template structure" [ref=e747] [cursor=pointer]':
+                    - /url: "#plugin-template-structure"
+                    - img [ref=e748]
+                - paragraph [ref=e750]: "A generated IntelliJ Platform Plugin Template repository contains the following content structure:"
+                - generic [ref=e751]:
+                  - code [ref=e753]: . ├── .github/ GitHub Actions workflows and Dependabot configuration files ├── .run/ Predefined Run/Debug Configurations ├── gradle │ └── wrapper/ Gradle Wrapper ├── src Plugin sources │ ├── main │ │ ├── kotlin/ Kotlin production sources │ │ └── resources/ Resources - plugin.xml, icons, messages │ └── test │ ├── kotlin/ Kotlin test sources │ └── testData/ Test data used by tests ├── .gitignore Git ignoring rules ├── build.gradle.kts Gradle configuration ├── CHANGELOG.md Full change history ├── gradle.properties Gradle configuration properties ├── gradlew *nix Gradle Wrapper script ├── gradlew.bat Windows Gradle Wrapper script ├── LICENSE License, MIT by default ├── README.md README └── settings.gradle.kts Gradle project settings and repositories
+                  - button "Copy" [ref=e755] [cursor=pointer]:
+                    - img [ref=e756]
+                - paragraph [ref=e759]:
+                  - text: In addition to the configuration files, the most crucial part is the
+                  - code [ref=e760]: src
+                  - text: directory, which contains our implementation and the manifest for our plugin –
+                  - link "plugin.xml" [ref=e761] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/src/main/resources/META-INF/plugin.xml
+                  - text: .
+                - generic [ref=e762]:
+                  - paragraph [ref=e763]:
+                    - img [ref=e764]
+                    - text: Note
+                  - paragraph [ref=e766]:
+                    - text: To use Java in your plugin, create the
+                    - code [ref=e767]: /src/main/java
+                    - text: directory.
+                - generic [ref=e768]:
+                  - heading "Plugin configuration file" [level=2] [ref=e769]
+                  - 'link "Permalink: Plugin configuration file" [ref=e770] [cursor=pointer]':
+                    - /url: "#plugin-configuration-file"
+                    - img [ref=e771]
+                - paragraph [ref=e773]:
+                  - text: The plugin configuration file is a
+                  - link "plugin.xml" [ref=e774] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/src/main/resources/META-INF/plugin.xml
+                  - text: file located in the
+                  - code [ref=e775]: src/main/resources/META-INF
+                  - text: directory. It provides general information about the plugin, its dependencies, and its extensions.
+                - generic [ref=e776]:
+                  - generic [ref=e777]:
+                    - text: <idea-plugin> <id>org.jetbrains.plugins.template</id> <name>IntelliJ Platform Plugin Template</name> <vendor>JetBrains</vendor> <depends>com.intellij.modules.platform</depends> <resource-bundle>messages.MyBundle</resource-bundle> <extensions defaultExtensionNs=
+                    - generic [ref=e778]: "\"com.intellij\""
+                    - text: "> <toolWindow factoryClass="
+                    - generic [ref=e779]: "\"...\""
+                    - text: id=
+                    - generic [ref=e780]: "\"...\""
+                    - text: /> <postStartupActivity implementation=
+                    - generic [ref=e781]: "\"...\""
+                    - text: /> </extensions> </idea-plugin>
+                  - button "Copy" [ref=e783] [cursor=pointer]:
+                    - img [ref=e784]
+                - paragraph [ref=e787]:
+                  - text: You can read more about this file in the
+                  - link "Plugin Configuration File" [ref=e788] [cursor=pointer]:
+                    - /url: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html?from=IJPluginTemplate
+                  - text: section of our documentation.
+                - generic [ref=e789]:
+                  - heading "Sample code" [level=2] [ref=e790]
+                  - 'link "Permalink: Sample code" [ref=e791] [cursor=pointer]':
+                    - /url: "#sample-code"
+                    - img [ref=e792]
+                - paragraph [ref=e794]: "The prepared template provides as little code as possible because it is impossible for a general scaffold to fulfill all the specific requirements for all types of plugins (language support, build tools, VCS related tools). Therefore, the template contains only the following files:"
+                - generic [ref=e795]:
+                  - code [ref=e797]: . ├── startup │ └── MyProjectActivity.kt Project startup activity ├── services │ └── MyProjectService.kt Project-level service ├── toolWindow │ └── MyToolWindowFactory.kt Tool window factory — creates tool window content └── MyBundle.kt Bundle class providing access to the resources messages
+                  - button "Copy" [ref=e799] [cursor=pointer]:
+                    - img [ref=e800]
+                - paragraph [ref=e803]:
+                  - text: These files are located in
+                  - code [ref=e804]: src/main/kotlin
+                  - text: . This location indicates the language being used. So if you decide to use Java instead (or in addition to Kotlin), these sources should be located in the
+                  - code [ref=e805]: src/main/java
+                  - text: directory.
+                - generic [ref=e806]:
+                  - paragraph [ref=e807]:
+                    - img [ref=e808]
+                    - text: Tip
+                  - paragraph [ref=e810]:
+                    - text: It is possible to use the
+                    - link "IntelliJ Platform Icons" [ref=e811] [cursor=pointer]:
+                      - /url: https://jb.gg/new-ui-icons
+                    - text: in your plugin.
+                - paragraph [ref=e812]:
+                  - text: To start with the actual implementation, you may check our
+                  - link "IntelliJ Platform SDK DevGuide" [ref=e813] [cursor=pointer]:
+                    - /url: https://plugins.jetbrains.com/docs/intellij?from=IJPluginTemplate
+                  - text: ", which contains an introduction to the essential areas of the plugin development together with dedicated tutorials."
+                - generic [ref=e814]:
+                  - paragraph [ref=e815]:
+                    - img [ref=e816]
+                    - text: Warning
+                  - paragraph [ref=e818]:
+                    - text: Remember to remove all non-needed sample code files with their corresponding registration entries in
+                    - code [ref=e819]: plugin.xml
+                    - text: .
+                - paragraph [ref=e820]:
+                  - text: For those who value example codes the most, there are also available
+                  - link "IntelliJ SDK Code Samples" [ref=e821] [cursor=pointer]:
+                    - /url: https://github.com/JetBrains/intellij-sdk-code-samples
+                  - text: and
+                  - link "IntelliJ Platform Explorer" [ref=e822] [cursor=pointer]:
+                    - /url: https://jb.gg/ipe
+                  - text: – a search tool for browsing Extension Points inside existing implementations of open-source IntelliJ Platform plugins.
+                - generic [ref=e823]:
+                  - heading "Testing" [level=2] [ref=e824]
+                  - 'link "Permalink: Testing" [ref=e825] [cursor=pointer]':
+                    - /url: "#testing"
+                    - img [ref=e826]
+                - paragraph [ref=e828]:
+                  - link "Testing plugins" [ref=e829] [cursor=pointer]:
+                    - /url: https://plugins.jetbrains.com/docs/intellij/testing-plugins.html?from=IJPluginTemplate
+                  - text: is an essential part of the plugin development to make sure that everything works as expected between IDE releases and plugin refactorings. The IntelliJ Platform Plugin Template project ships with functional test examples and leaves UI testing setup to the plugin author.
+                - generic [ref=e830]:
+                  - heading "Functional tests" [level=3] [ref=e831]
+                  - 'link "Permalink: Functional tests" [ref=e832] [cursor=pointer]':
+                    - /url: "#functional-tests"
+                    - img [ref=e833]
+                - paragraph [ref=e835]: Most of the IntelliJ Platform codebase tests are model-level, run in a headless environment using an actual IDE instance. The tests usually test a feature as a whole rather than individual functions that comprise its implementation, like in unit tests.
+                - paragraph [ref=e836]:
+                  - text: In
+                  - code [ref=e837]: src/test/kotlin
+                  - text: ", you will find a basic"
+                  - code [ref=e838]: MyPluginTest
+                  - text: test that utilizes
+                  - code [ref=e839]: BasePlatformTestCase
+                  - text: and runs a few checks against the XML files to indicate an example operation of creating files on the fly or reading them from
+                  - code [ref=e840]: src/test/testData/rename
+                  - text: test resources.
+                - generic [ref=e841]:
+                  - paragraph [ref=e842]:
+                    - img [ref=e843]
+                    - text: Note
+                  - paragraph [ref=e845]:
+                    - text: Run your tests using predefined
+                    - emphasis [ref=e846]: Run Tests
+                    - text: configuration or by invoking the
+                    - code [ref=e847]: ./gradlew check
+                    - text: Gradle task.
+                - generic [ref=e848]:
+                  - heading "UI tests" [level=3] [ref=e849]
+                  - 'link "Permalink: UI tests" [ref=e850] [cursor=pointer]':
+                    - /url: "#ui-tests"
+                    - img [ref=e851]
+                - paragraph [ref=e853]: If your plugin provides complex user interfaces, you should consider covering them with tests and the functionality they use.
+                - paragraph [ref=e854]:
+                  - text: The template does not wire UI testing into the Gradle build by default anymore. If you need UI coverage, add your own UI test source set and Gradle tasks first, then adapt the optional
+                  - link "Run UI Tests" [ref=e855] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/workflows/run-ui-tests.yml
+                  - text: workflow to launch and execute them on macOS, Windows, and Linux.
+                - paragraph [ref=e856]:
+                  - text: For a concrete example of UI test tooling, see
+                  - link "IntelliJ UI Test Robot" [ref=e857] [cursor=pointer]:
+                    - /url: https://github.com/JetBrains/intellij-ui-test-robot
+                  - text: and the
+                  - link "ui-test-example" [ref=e858] [cursor=pointer]:
+                    - /url: https://github.com/JetBrains/intellij-ui-test-robot/tree/master/ui-test-example
+                  - text: project.
+                - generic [ref=e859]:
+                  - heading "Predefined Run/Debug configurations" [level=2] [ref=e860]
+                  - 'link "Permalink: Predefined Run/Debug configurations" [ref=e861] [cursor=pointer]':
+                    - /url: "#predefined-rundebug-configurations"
+                    - img [ref=e862]
+                - paragraph [ref=e864]:
+                  - text: Within the default project structure, there is a
+                  - code [ref=e865]: .run
+                  - text: directory provided containing predefined
+                  - emphasis [ref=e866]: Run/Debug configurations
+                  - text: "that expose corresponding Gradle tasks:"
+                - paragraph [ref=e867]:
+                  - link "Run/Debug configurations" [ref=e868] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/readme/run-debug-configurations.png
+                    - img "Run/Debug configurations" [ref=e869]
+                - table [ref=e871]:
+                  - rowgroup [ref=e872]:
+                    - row "Configuration name Description" [ref=e873]:
+                      - columnheader "Configuration name" [ref=e874]
+                      - columnheader "Description" [ref=e875]
+                  - rowgroup [ref=e876]:
+                    - row "Run Plugin Runs :runIde IntelliJ Platform Gradle Plugin task. Use the Debug icon for plugin debugging." [ref=e877]:
+                      - cell "Run Plugin" [ref=e878]
+                      - cell "Runs :runIde IntelliJ Platform Gradle Plugin task. Use the Debug icon for plugin debugging." [ref=e879]:
+                        - text: Runs
+                        - link ":runIde" [ref=e880] [cursor=pointer]:
+                          - /url: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-tasks.html#runIde
+                          - code [ref=e881]: :runIde
+                        - text: IntelliJ Platform Gradle Plugin task. Use the
+                        - emphasis [ref=e882]: Debug
+                        - text: icon for plugin debugging.
+                    - row "Run Tests Runs :check Gradle task." [ref=e883]:
+                      - cell "Run Tests" [ref=e884]
+                      - cell "Runs :check Gradle task." [ref=e885]:
+                        - text: Runs
+                        - link ":check" [ref=e886] [cursor=pointer]:
+                          - /url: https://docs.gradle.org/current/userguide/java_plugin.html#lifecycle_tasks
+                          - code [ref=e887]: :check
+                        - text: Gradle task.
+                    - row "Run Verifications Runs :verifyPlugin IntelliJ Platform Gradle Plugin task to check the plugin compatibility against the specified IntelliJ IDEs." [ref=e888]:
+                      - cell "Run Verifications" [ref=e889]
+                      - cell "Runs :verifyPlugin IntelliJ Platform Gradle Plugin task to check the plugin compatibility against the specified IntelliJ IDEs." [ref=e890]:
+                        - text: Runs
+                        - link ":verifyPlugin" [ref=e891] [cursor=pointer]:
+                          - /url: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-tasks.html#verifyPlugin
+                          - code [ref=e892]: :verifyPlugin
+                        - text: IntelliJ Platform Gradle Plugin task to check the plugin compatibility against the specified IntelliJ IDEs.
+                - generic [ref=e893]:
+                  - paragraph [ref=e894]:
+                    - img [ref=e895]
+                    - text: Note
+                  - paragraph [ref=e897]:
+                    - text: You can find the logs from the running task in the
+                    - code [ref=e898]: idea.log
+                    - text: tab.
+                  - paragraph [ref=e899]:
+                    - link "Run/Debug configuration logs" [ref=e900] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/readme/run-logs.png
+                      - img "Run/Debug configuration logs" [ref=e901]
+                - generic [ref=e902]:
+                  - heading "Continuous integration" [level=2] [ref=e903]
+                  - 'link "Permalink: Continuous integration" [ref=e904] [cursor=pointer]':
+                    - /url: "#continuous-integration"
+                    - img [ref=e905]
+                - paragraph [ref=e907]:
+                  - text: Continuous integration depends on
+                  - link "GitHub Actions" [ref=e908] [cursor=pointer]:
+                    - /url: https://help.github.com/en/actions
+                  - text: ", a set of workflows that make it possible to automate your testing and release process. Thanks to such automation, you can delegate the testing and verification phases to the Continuous Integration (CI) and instead focus on development (and writing more tests)."
+                - generic [ref=e909]:
+                  - paragraph [ref=e910]:
+                    - img [ref=e911]
+                    - text: Note
+                  - paragraph [ref=e913]:
+                    - text: To ensure the "Create Pull Request" step functions correctly in the "Publish Plugin" job, make sure to enable "Read and write permissions" for actions by navigating to
+                    - code [ref=e914]: ⚙️ Settings > Actions > General > Workflow permissions
+                    - text: .
+                - paragraph [ref=e915]:
+                  - text: In the
+                  - code [ref=e916]: .github/workflows
+                  - text: "directory, you can find definitions for the following GitHub Actions workflows:"
+                - list [ref=e917]:
+                  - listitem [ref=e918]:
+                    - link "Build" [ref=e919] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/workflows/build.yml
+                    - list [ref=e920]:
+                      - listitem [ref=e921]:
+                        - text: Triggered on
+                        - code [ref=e922]: push
+                        - text: and
+                        - code [ref=e923]: pull_request
+                        - text: events.
+                      - listitem [ref=e924]:
+                        - text: Builds the plugin with the
+                        - code [ref=e925]: buildPlugin
+                        - text: Gradle task and provides the unpacked plugin artifact for the next jobs in the workflow.
+                      - listitem [ref=e926]:
+                        - text: Runs the
+                        - code [ref=e927]: check
+                        - text: Gradle task in a dedicated test job.
+                      - listitem [ref=e928]:
+                        - text: Runs the
+                        - code [ref=e929]: verifyPlugin
+                        - text: Gradle task in a dedicated verification job.
+                      - listitem [ref=e930]: Prepares a draft release of the GitHub Releases page for manual verification.
+                  - listitem [ref=e931]:
+                    - link "Release" [ref=e932] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/workflows/release.yml
+                    - list [ref=e933]:
+                      - listitem [ref=e934]:
+                        - text: Triggered on
+                        - code [ref=e935]: prereleased
+                        - text: and
+                        - code [ref=e936]: released
+                        - text: events.
+                      - listitem [ref=e937]:
+                        - text: Updates
+                        - code [ref=e938]: CHANGELOG.md
+                        - text: with the published release notes when a release body is provided.
+                      - listitem [ref=e939]: Signs the plugin with a provided certificate before publishing.
+                      - listitem [ref=e940]:
+                        - text: Publishes the plugin to JetBrains Marketplace using the provided
+                        - code [ref=e941]: PUBLISH_TOKEN
+                        - text: .
+                      - listitem [ref=e942]: Uploads the built plugin distribution as a GitHub release asset.
+                      - listitem [ref=e943]: Creates a pull request with the patched changelog when needed.
+                  - listitem [ref=e944]:
+                    - link "Run UI Tests" [ref=e945] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/workflows/run-ui-tests.yml
+                    - list [ref=e946]:
+                      - listitem [ref=e947]: Triggered manually.
+                      - listitem [ref=e948]: Provides an example matrix for macOS, Windows, and Linux.
+                      - listitem [ref=e949]: Is intended to be adapted once your plugin defines its own UI test setup.
+                  - listitem [ref=e950]:
+                    - link "Template Cleanup" [ref=e951] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/workflows/template-cleanup.yml
+                    - list [ref=e952]:
+                      - listitem [ref=e953]:
+                        - text: Triggered once on the
+                        - code [ref=e954]: push
+                        - text: event when a new template-based repository has been created.
+                      - listitem [ref=e955]:
+                        - text: Overrides the scaffold with files from the
+                        - code [ref=e956]: .github/template-cleanup
+                        - text: directory.
+                      - listitem [ref=e957]: Overrides JetBrains-specific sentences or package names with ones specific to the target repository.
+                      - listitem [ref=e958]: Removes redundant files.
+                - paragraph [ref=e959]: All the workflow files include inline documentation, so it's a good idea to take a look through their sources.
+                - generic [ref=e960]:
+                  - heading "Dependencies management" [level=3] [ref=e961]
+                  - 'link "Permalink: Dependencies management" [ref=e962] [cursor=pointer]':
+                    - /url: "#dependencies-management"
+                    - img [ref=e963]
+                - paragraph [ref=e965]: "This template keeps dependency management explicit and local to the Gradle files that use it:"
+                - list [ref=e966]:
+                  - listitem [ref=e967]:
+                    - link "settings.gradle.kts" [ref=e968] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/settings.gradle.kts
+                      - code [ref=e969]: settings.gradle.kts
+                    - text: declares Gradle plugin versions and repositories.
+                  - listitem [ref=e970]:
+                    - link "build.gradle.kts" [ref=e971] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/build.gradle.kts
+                      - code [ref=e972]: build.gradle.kts
+                    - text: declares the target IntelliJ Platform version and project dependencies.
+                  - listitem [ref=e973]:
+                    - link "gradle.properties" [ref=e974] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/gradle.properties
+                      - code [ref=e975]: gradle.properties
+                    - text: stores repository-specific metadata shared by the build and CI workflows.
+                - generic [ref=e976]:
+                  - paragraph [ref=e977]:
+                    - img [ref=e978]
+                    - text: Note
+                  - paragraph [ref=e980]:
+                    - text: To add a regular library dependency, declare it directly in the
+                    - code [ref=e981]: "dependencies { ... }"
+                    - text: "block:"
+                  - generic [ref=e982]:
+                    - generic [ref=e983]:
+                      - text: "dependencies { implementation("
+                      - generic [ref=e984]: "\"group:artifact:version\""
+                      - text: ") }"
+                    - button "Copy" [ref=e986] [cursor=pointer]:
+                      - img [ref=e987]
+                  - paragraph [ref=e990]:
+                    - text: Add IntelliJ Platform plugin or module dependencies through the
+                    - code [ref=e991]: "intellijPlatform { ... }"
+                    - text: dependency extension described in the
+                    - link "IntelliJ Platform Gradle Plugin documentation" [ref=e992] [cursor=pointer]:
+                      - /url: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
+                    - text: .
+                - paragraph [ref=e993]:
+                  - text: Keeping the project in good shape and having all the dependencies up to date requires time and effort, but it is possible to automate that process using
+                  - link "Dependabot" [ref=e994] [cursor=pointer]:
+                    - /url: https://docs.github.com/en/free-pro-team@latest/github/administering-a-repository/keeping-your-dependencies-updated-automatically
+                  - text: .
+                - paragraph [ref=e995]:
+                  - text: Dependabot is a bot provided by GitHub to check the build configuration files and review any outdated or insecure dependencies of yours – in case if any update is available, it creates a new pull request providing
+                  - link "the proper change" [ref=e996] [cursor=pointer]:
+                    - /url: https://github.com/JetBrains/intellij-platform-plugin-template/pull/73
+                  - text: .
+                - generic [ref=e997]:
+                  - paragraph [ref=e998]:
+                    - img [ref=e999]
+                    - text: Note
+                  - paragraph [ref=e1001]:
+                    - text: Dependabot doesn't yet support checking of the Gradle Wrapper. Check the
+                    - link "Gradle Releases" [ref=e1002] [cursor=pointer]:
+                      - /url: https://gradle.org/releases
+                    - text: page and run
+                  - generic [ref=e1003]:
+                    - generic [ref=e1004]: ./gradlew wrapper --gradle-version <version> && ./gradlew wrapper
+                    - button "Copy" [ref=e1006] [cursor=pointer]:
+                      - img [ref=e1007]
+                - generic [ref=e1010]:
+                  - heading "Changelog maintenance" [level=3] [ref=e1011]
+                  - 'link "Permalink: Changelog maintenance" [ref=e1012] [cursor=pointer]':
+                    - /url: "#changelog-maintenance"
+                    - img [ref=e1013]
+                - paragraph [ref=e1015]: When releasing an update, it is essential to let your users know what the new version offers. The best way to do this is to provide release notes.
+                - paragraph [ref=e1016]: "The changelog is a curated list that contains information about any new features, fixes, and deprecations. When they're provided, these lists are available in a few different places:"
+                - list [ref=e1017]:
+                  - listitem [ref=e1018]:
+                    - text: the
+                    - link "CHANGELOG.md" [ref=e1019] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/CHANGELOG.md
+                    - text: file,
+                  - listitem [ref=e1020]:
+                    - text: the
+                    - link "Releases page" [ref=e1021] [cursor=pointer]:
+                      - /url: https://github.com/JetBrains/intellij-platform-plugin-template/releases
+                    - text: ","
+                  - listitem [ref=e1022]:
+                    - text: the
+                    - emphasis [ref=e1023]: What's new
+                    - text: section of the JetBrains Marketplace Plugin page,
+                  - listitem [ref=e1024]: and inside the Plugin Manager's item details.
+                - paragraph [ref=e1025]:
+                  - text: There are many methods for handling the project's changelog. The one used in the current template project is the
+                  - link "Keep a Changelog" [ref=e1026] [cursor=pointer]:
+                    - /url: https://keepachangelog.com
+                  - text: approach.
+                - paragraph [ref=e1027]:
+                  - text: The
+                  - link "Gradle Changelog Plugin" [ref=e1028] [cursor=pointer]:
+                    - /url: https://github.com/JetBrains/gradle-changelog-plugin
+                  - text: takes care of propagating information provided within the
+                  - link "CHANGELOG.md" [ref=e1029] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/CHANGELOG.md
+                  - text: to the
+                  - link "IntelliJ Platform Gradle Plugin" [ref=e1030] [cursor=pointer]:
+                    - /url: https://github.com/JetBrains/intellij-platform-gradle-plugin
+                  - text: . You only have to take care of writing down the actual changes in proper sections of the
+                  - code [ref=e1031]: "[Unreleased]"
+                  - text: section.
+                - paragraph [ref=e1032]: "You start with an almost empty changelog:"
+                - generic [ref=e1033]:
+                  - code [ref=e1035]: "# YourPlugin Changelog ## [Unreleased] ### Added - Initial scaffold created from [IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template)"
+                  - button "Copy" [ref=e1037] [cursor=pointer]:
+                    - img [ref=e1038]
+                - paragraph [ref=e1041]:
+                  - text: Now proceed with providing more entries to the
+                  - code [ref=e1042]: Added
+                  - text: group, or any other one that suits your change the most (see
+                  - link "How do I make a good changelog?" [ref=e1043] [cursor=pointer]:
+                    - /url: https://keepachangelog.com/en/1.0.0/#how
+                  - text: for more details).
+                - paragraph [ref=e1044]:
+                  - text: When releasing a plugin update, you don't have to care about bumping the
+                  - code [ref=e1045]: "[Unreleased]"
+                  - text: "header to the upcoming version – it will be handled automatically on the Continuous Integration (CI) after you publish your plugin. GitHub Actions will swap it and provide you with an empty section for the next release so that you can proceed with your development:"
+                - generic [ref=e1046]:
+                  - code [ref=e1048]: "# YourPlugin Changelog ## [Unreleased] ## [0.0.1] ### Added - An awesome feature - Initial scaffold created from [IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template) ### Fixed - One annoying bug"
+                  - button "Copy" [ref=e1050] [cursor=pointer]:
+                    - img [ref=e1051]
+                - paragraph [ref=e1054]:
+                  - text: To configure how the Changelog plugin behaves, i.e., to create headers with the release date, see the
+                  - link "Gradle Changelog Plugin" [ref=e1055] [cursor=pointer]:
+                    - /url: https://github.com/JetBrains/gradle-changelog-plugin
+                  - text: README file.
+                - generic [ref=e1056]:
+                  - heading "Release flow" [level=3] [ref=e1057]
+                  - 'link "Permalink: Release flow" [ref=e1058] [cursor=pointer]':
+                    - /url: "#release-flow"
+                    - img [ref=e1059]
+                - paragraph [ref=e1061]:
+                  - text: The release process depends on the workflows already described above. When your main branch receives a new pull request or a direct push, the
+                  - link "Build" [ref=e1062] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/workflows/build.yml
+                  - text: workflow runs multiple tests on your plugin and prepares a draft release.
+                - paragraph [ref=e1063]:
+                  - link "Release draft" [ref=e1064] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/readme/draft-release.png
+                    - img "Release draft" [ref=e1065]
+                - paragraph [ref=e1066]:
+                  - text: The draft release is a working copy of a release, which you can review before publishing. It uses the current plugin version from
+                  - link "gradle.properties" [ref=e1067] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/gradle.properties
+                    - code [ref=e1068]: gradle.properties
+                  - text: as both the title and git tag, for example,
+                  - code [ref=e1069]: 0.0.1
+                  - text: . The changelog is provided automatically using the
+                  - link "gradle-changelog-plugin" [ref=e1070] [cursor=pointer]:
+                    - /url: https://github.com/JetBrains/gradle-changelog-plugin
+                  - text: . The built plugin archive is uploaded as a workflow artifact during the Build run rather than attached to the draft release itself. Every new Build overrides the previous draft to keep your
+                  - emphasis [ref=e1071]: Releases
+                  - text: page clean.
+                - paragraph [ref=e1072]:
+                  - text: When you edit the draft and use the
+                  - generic [ref=e1073]: Publish release
+                  - text: button, GitHub will tag your repository with the given version and add a new entry to the Releases tab. Next, it will notify users who are
+                  - emphasis [ref=e1074]: watching
+                  - text: the repository, triggering the final
+                  - link "Release" [ref=e1075] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/workflows/release.yml
+                  - text: workflow.
+                - generic [ref=e1076]:
+                  - heading "Plugin signing" [level=3] [ref=e1077]
+                  - 'link "Permalink: Plugin signing" [ref=e1078] [cursor=pointer]':
+                    - /url: "#plugin-signing"
+                    - img [ref=e1079]
+                - paragraph [ref=e1081]:
+                  - text: Plugin Signing is a mechanism introduced in the 2021.2 release cycle to increase security in
+                  - link "JetBrains Marketplace" [ref=e1082] [cursor=pointer]:
+                    - /url: https://plugins.jetbrains.com
+                  - text: and all of our IntelliJ-based IDEs.
+                - paragraph [ref=e1083]: JetBrains Marketplace signing is designed to ensure that plugins aren't modified over the course of the publishing and delivery pipeline.
+                - paragraph [ref=e1084]:
+                  - text: The current template keeps signing configuration out of
+                  - code [ref=e1085]: build.gradle.kts
+                  - text: and relies on the standard environment variables consumed by the IntelliJ Platform Gradle Plugin. That allows you to sign and publish your plugin from both the Continuous Integration (CI) and local environments without checking secrets into VCS.
+                - paragraph [ref=e1086]:
+                  - text: To find out how to generate signing certificates, check the
+                  - link "Plugin Signing" [ref=e1087] [cursor=pointer]:
+                    - /url: https://plugins.jetbrains.com/docs/intellij/plugin-signing.html?from=IJPluginTemplate
+                  - text: section in the IntelliJ Platform Plugin SDK documentation.
+                - generic [ref=e1088]:
+                  - heading "Publishing the plugin" [level=3] [ref=e1089]
+                  - 'link "Permalink: Publishing the plugin" [ref=e1090] [cursor=pointer]':
+                    - /url: "#publishing-the-plugin"
+                    - img [ref=e1091]
+                - generic [ref=e1093]:
+                  - paragraph [ref=e1094]:
+                    - img [ref=e1095]
+                    - text: Tip
+                  - paragraph [ref=e1097]:
+                    - text: Make sure to follow all guidelines listed in
+                    - link "Publishing a Plugin" [ref=e1098] [cursor=pointer]:
+                      - /url: https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginTemplate
+                    - text: to follow all recommended and required steps.
+                - paragraph [ref=e1099]:
+                  - text: Releasing a plugin to
+                  - link "JetBrains Marketplace" [ref=e1100] [cursor=pointer]:
+                    - /url: https://plugins.jetbrains.com
+                  - text: is a straightforward operation that uses the
+                  - code [ref=e1101]: publishPlugin
+                  - text: Gradle task provided by the
+                  - link "intellij-platform-gradle-plugin" [ref=e1102] [cursor=pointer]:
+                    - /url: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
+                  - text: . In addition, the
+                  - link "Release" [ref=e1103] [cursor=pointer]:
+                    - /url: /JetBrains/intellij-platform-plugin-template/blob/main/.github/workflows/release.yml
+                  - text: workflow automates this process by running the task when a new release appears in the GitHub Releases section.
+                - generic [ref=e1104]:
+                  - paragraph [ref=e1105]:
+                    - img [ref=e1106]
+                    - text: Note
+                  - paragraph [ref=e1108]:
+                    - text: If you need custom Marketplace channels or additional publishing options, add explicit publishing configuration to
+                    - link "build.gradle.kts" [ref=e1109] [cursor=pointer]:
+                      - /url: /JetBrains/intellij-platform-plugin-template/blob/main/build.gradle.kts
+                      - code [ref=e1110]: build.gradle.kts
+                    - text: as described in the
+                    - link "publishing documentation" [ref=e1111] [cursor=pointer]:
+                      - /url: https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginTemplate
+                    - text: .
+                - paragraph [ref=e1112]:
+                  - text: The authorization process relies on the
+                  - code [ref=e1113]: PUBLISH_TOKEN
+                  - text: secret environment variable, specified in the
+                  - code [ref=e1114]: ⚙️ Settings > Secrets and variables > Actions
+                  - text: section of your project repository.
+                - paragraph [ref=e1115]:
+                  - text: You can get that token in your JetBrains Marketplace profile dashboard in the
+                  - link "My Tokens" [ref=e1116] [cursor=pointer]:
+                    - /url: https://plugins.jetbrains.com/author/me/tokens
+                  - text: tab.
+                - generic [ref=e1117]:
+                  - paragraph [ref=e1118]:
+                    - img [ref=e1119]
+                    - text: Warning
+                  - paragraph [ref=e1121]:
+                    - text: Before using the automated deployment process, it is necessary to manually create a new plugin in JetBrains Marketplace to specify options like the license, repository URL, etc. Please follow the
+                    - link "Publishing a Plugin" [ref=e1122] [cursor=pointer]:
+                      - /url: https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginTemplate
+                    - text: instructions.
+                - generic [ref=e1123]:
+                  - heading "FAQ" [level=2] [ref=e1124]
+                  - 'link "Permalink: FAQ" [ref=e1125] [cursor=pointer]':
+                    - /url: "#faq"
+                    - img [ref=e1126]
+                - generic [ref=e1128]:
+                  - heading "How to use Java in my project?" [level=3] [ref=e1129]
+                  - 'link "Permalink: How to use Java in my project?" [ref=e1130] [cursor=pointer]':
+                    - /url: "#how-to-use-java-in-my-project"
+                    - img [ref=e1131]
+                - paragraph [ref=e1133]:
+                  - text: Java language is supported by default along with Kotlin. Initially, the
+                  - code [ref=e1134]: /src/main/kotlin
+                  - text: directory is available with minimal examples. You can still replace it or add the
+                  - code [ref=e1135]: /src/main/java
+                  - text: directory to start working with Java language instead.
+                - generic [ref=e1136]:
+                  - heading "How to disable tests or build job using the [skip ci] commit message?" [level=3] [ref=e1137]:
+                    - text: How to disable
+                    - emphasis [ref=e1138]: tests
+                    - text: or
+                    - emphasis [ref=e1139]: build
+                    - text: job using the
+                    - code [ref=e1140]: "[skip ci]"
+                    - text: commit message?
+                  - 'link "Permalink: How to disable tests or build job using the [skip ci] commit message?" [ref=e1141] [cursor=pointer]':
+                    - /url: "#how-to-disable-tests-or-build-job-using-the-skip-ci-commit-message"
+                    - img [ref=e1142]
+                - paragraph [ref=e1144]:
+                  - text: Since February 2021, GitHub Actions
+                  - link "has supported the skip CI feature" [ref=e1145] [cursor=pointer]:
+                    - /url: https://github.blog/changelog/2021-02-08-github-actions-skip-pull-request-and-push-workflows-with-skip-ci/
+                  - text: ". If the message contains one of the following strings:"
+                  - code [ref=e1146]: "[skip ci]"
+                  - text: ","
+                  - code [ref=e1147]: "[ci skip]"
+                  - text: ","
+                  - code [ref=e1148]: "[no ci]"
+                  - text: ","
+                  - code [ref=e1149]: "[skip actions]"
+                  - text: ", or"
+                  - code [ref=e1150]: "[actions skip]"
+                  - text: – workflows will not be triggered.
+                - generic [ref=e1151]:
+                  - heading "Why does the draft release no longer contain a built plugin artifact?" [level=3] [ref=e1152]
+                  - 'link "Permalink: Why does the draft release no longer contain a built plugin artifact?" [ref=e1153] [cursor=pointer]':
+                    - /url: "#why-does-the-draft-release-no-longer-contain-a-built-plugin-artifact"
+                    - img [ref=e1154]
+                - paragraph [ref=e1156]: All binaries created by the workflows are still available as workflow artifacts together with failed test reports or Plugin Verifier results. That approach gives more possibilities for testing and debugging pre-releases, for example, in your local environment.
+                - generic [ref=e1157]:
+                  - heading "Useful links" [level=2] [ref=e1158]
+                  - 'link "Permalink: Useful links" [ref=e1159] [cursor=pointer]':
+                    - /url: "#useful-links"
+                    - img [ref=e1160]
+                - list [ref=e1162]:
+                  - listitem [ref=e1163]:
+                    - link "IntelliJ Platform SDK Plugin SDK" [ref=e1164] [cursor=pointer]:
+                      - /url: https://plugins.jetbrains.com/docs/intellij?from=IJPluginTemplate
+                  - listitem [ref=e1165]:
+                    - link "IntelliJ Platform Gradle Plugin Documentation" [ref=e1166] [cursor=pointer]:
+                      - /url: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
+                  - listitem [ref=e1167]:
+                    - link "IntelliJ Platform Explorer" [ref=e1168] [cursor=pointer]:
+                      - /url: https://jb.gg/ipe
+                  - listitem [ref=e1169]:
+                    - link "JetBrains Marketplace Quality Guidelines" [ref=e1170] [cursor=pointer]:
+                      - /url: https://plugins.jetbrains.com/docs/marketplace/quality-guidelines.html
+                  - listitem [ref=e1171]:
+                    - link "IntelliJ Platform UI Guidelines" [ref=e1172] [cursor=pointer]:
+                      - /url: https://jetbrains.github.io/ui
+                  - listitem [ref=e1173]:
+                    - link "JetBrains Marketplace Paid Plugins" [ref=e1174] [cursor=pointer]:
+                      - /url: https://plugins.jetbrains.com/docs/marketplace/paid-plugins-marketplace.html
+                  - listitem [ref=e1175]:
+                    - link "Kotlin UI DSL" [ref=e1176] [cursor=pointer]:
+                      - /url: https://plugins.jetbrains.com/docs/intellij/kotlin-ui-dsl-version-2.html?from=IJPluginTemplate
+                  - listitem [ref=e1177]:
+                    - link "IntelliJ SDK Code Samples" [ref=e1178] [cursor=pointer]:
+                      - /url: https://github.com/JetBrains/intellij-sdk-code-samples
+                  - listitem [ref=e1179]:
+                    - link "JetBrains Platform Slack" [ref=e1180] [cursor=pointer]:
+                      - /url: https://plugins.jetbrains.com/slack
+                  - listitem [ref=e1181]:
+                    - link "JetBrains Platform Twitter" [ref=e1182] [cursor=pointer]:
+                      - /url: https://twitter.com/JBPlatform
+                  - listitem [ref=e1183]:
+                    - link "IntelliJ IDEA Open API and Plugin Development Forum" [ref=e1184] [cursor=pointer]:
+                      - /url: https://intellij-support.jetbrains.com/hc/en-us/community/topics/200366979-IntelliJ-IDEA-Open-API-and-Plugin-Development
+                  - listitem [ref=e1185]:
+                    - link "Keep a Changelog" [ref=e1186] [cursor=pointer]:
+                      - /url: https://keepachangelog.com
+                  - listitem [ref=e1187]:
+                    - link "GitHub Actions" [ref=e1188] [cursor=pointer]:
+                      - /url: https://help.github.com/en/actions
+        - generic [ref=e1192]:
+          - generic [ref=e1195]:
+            - heading "About" [level=2] [ref=e1196]
+            - paragraph [ref=e1197]: Template repository for creating plugins for IntelliJ Platform
+            - heading "Topics" [level=3] [ref=e1198]
+            - generic [ref=e1200]:
+              - link "intellij" [ref=e1201] [cursor=pointer]:
+                - /url: /topics/intellij
+              - link "intellij-plugin" [ref=e1202] [cursor=pointer]:
+                - /url: /topics/intellij-plugin
+              - link "intellij-platform" [ref=e1203] [cursor=pointer]:
+                - /url: /topics/intellij-platform
+              - link "intellij-idea" [ref=e1204] [cursor=pointer]:
+                - /url: /topics/intellij-idea
+              - link "jetbrains-plugin" [ref=e1205] [cursor=pointer]:
+                - /url: /topics/jetbrains-plugin
+              - link "intellij-idea-plugin" [ref=e1206] [cursor=pointer]:
+                - /url: /topics/intellij-idea-plugin
+              - link "intellij-plugins" [ref=e1207] [cursor=pointer]:
+                - /url: /topics/intellij-plugins
+            - heading "Resources" [level=3] [ref=e1208]
+            - link "Readme" [ref=e1210] [cursor=pointer]:
+              - /url: "#readme-ov-file"
+              - img [ref=e1211]
+              - text: Readme
+            - heading "License" [level=3] [ref=e1213]
+            - link "Apache-2.0 license" [ref=e1215] [cursor=pointer]:
+              - /url: "#Apache-2.0-1-ov-file"
+              - img [ref=e1216]
+              - text: Apache-2.0 license
+            - heading "Code of conduct" [level=3] [ref=e1218]
+            - link "Code of conduct" [ref=e1220] [cursor=pointer]:
+              - /url: "#coc-ov-file"
+              - img [ref=e1221]
+              - text: Code of conduct
+            - link "Activity" [ref=e1224] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/activity
+              - img [ref=e1225]
+              - text: Activity
+            - link "Custom properties" [ref=e1228] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/custom-properties
+              - img [ref=e1229]
+              - text: Custom properties
+            - heading "Stars" [level=3] [ref=e1231]
+            - link "3.7k stars" [ref=e1233] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/stargazers
+              - img [ref=e1234]
+              - strong [ref=e1236]: 3.7k
+              - text: stars
+            - heading "Watchers" [level=3] [ref=e1237]
+            - link "143 watching" [ref=e1239] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/watchers
+              - img [ref=e1240]
+              - strong [ref=e1242]: "143"
+              - text: watching
+            - heading "Forks" [level=3] [ref=e1243]
+            - link "806 forks" [ref=e1245] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/forks
+              - img [ref=e1246]
+              - strong [ref=e1248]: "806"
+              - text: forks
+            - link "Report repository" [ref=e1250] [cursor=pointer]:
+              - /url: /contact/report-content?content_url=https%3A%2F%2Fgithub.com%2FJetBrains%2Fintellij-platform-plugin-template&report=JetBrains+%28user%29
+          - generic [ref=e1252]:
+            - heading "Releases 56" [level=2] [ref=e1253]:
+              - link "Releases 56" [ref=e1254] [cursor=pointer]:
+                - /url: /JetBrains/intellij-platform-plugin-template/releases
+                - text: Releases
+                - generic "56" [ref=e1255]
+            - link "2.5.0 Latest Apr 17, 20262 weeks ago" [ref=e1256] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/releases/tag/2.5.0
+              - img [ref=e1257]
+              - generic [ref=e1259]:
+                - generic [ref=e1260]:
+                  - generic [ref=e1261]: 2.5.0
+                  - 'generic "Label: Latest" [ref=e1262]': Latest
+                - generic [ref=e1263]: Apr 17, 20262 weeks ago
+            - link "+ 55 releases" [ref=e1265] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/releases
+          - generic [ref=e1267]:
+            - heading "Contributors 62" [level=2] [ref=e1268]:
+              - link "Contributors 62" [ref=e1269] [cursor=pointer]:
+                - /url: /JetBrains/intellij-platform-plugin-template/graphs/contributors
+                - text: Contributors
+                - generic "62" [ref=e1270]
+            - list [ref=e1271]:
+              - listitem [ref=e1272]:
+                - link "@hsz" [ref=e1273] [cursor=pointer]:
+                  - /url: https://github.com/hsz
+                  - img "@hsz" [ref=e1274]
+              - listitem [ref=e1275]:
+                - link "@dependabot[bot]" [ref=e1276] [cursor=pointer]:
+                  - /url: https://github.com/apps/dependabot
+                  - img "@dependabot[bot]" [ref=e1277]
+              - listitem [ref=e1278]:
+                - link "@YannCebron" [ref=e1279] [cursor=pointer]:
+                  - /url: https://github.com/YannCebron
+                  - img "@YannCebron" [ref=e1280]
+              - listitem [ref=e1281]:
+                - link "@actions-user" [ref=e1282] [cursor=pointer]:
+                  - /url: https://github.com/actions-user
+                  - img "@actions-user" [ref=e1283]
+              - listitem [ref=e1284]:
+                - link "@Danil42Russia" [ref=e1285] [cursor=pointer]:
+                  - /url: https://github.com/Danil42Russia
+                  - img "@Danil42Russia" [ref=e1286]
+              - listitem [ref=e1287]:
+                - link "@jreznot" [ref=e1288] [cursor=pointer]:
+                  - /url: https://github.com/jreznot
+                  - img "@jreznot" [ref=e1289]
+              - listitem [ref=e1290]:
+                - link "@KotlinIsland" [ref=e1291] [cursor=pointer]:
+                  - /url: https://github.com/KotlinIsland
+                  - img "@KotlinIsland" [ref=e1292]
+              - listitem [ref=e1293]:
+                - link "@ForNeVeR" [ref=e1294] [cursor=pointer]:
+                  - /url: https://github.com/ForNeVeR
+                  - img "@ForNeVeR" [ref=e1295]
+              - listitem [ref=e1296]:
+                - link "@hybloid" [ref=e1297] [cursor=pointer]:
+                  - /url: https://github.com/hybloid
+                  - img "@hybloid" [ref=e1298]
+              - listitem [ref=e1299]:
+                - link "@nbadal" [ref=e1300] [cursor=pointer]:
+                  - /url: https://github.com/nbadal
+                  - img "@nbadal" [ref=e1301]
+              - listitem [ref=e1302]:
+                - link "@rybak" [ref=e1303] [cursor=pointer]:
+                  - /url: https://github.com/rybak
+                  - img "@rybak" [ref=e1304]
+              - listitem [ref=e1305]:
+                - link "@GitHubPang" [ref=e1306] [cursor=pointer]:
+                  - /url: https://github.com/GitHubPang
+                  - img "@GitHubPang" [ref=e1307]
+              - listitem [ref=e1308]:
+                - link "@leonard84" [ref=e1309] [cursor=pointer]:
+                  - /url: https://github.com/leonard84
+                  - img "@leonard84" [ref=e1310]
+              - listitem [ref=e1311]:
+                - link "@MysterAitch" [ref=e1312] [cursor=pointer]:
+                  - /url: https://github.com/MysterAitch
+                  - img "@MysterAitch" [ref=e1313]
+            - link "+ 48 contributors" [ref=e1315] [cursor=pointer]:
+              - /url: /JetBrains/intellij-platform-plugin-template/graphs/contributors
+          - generic [ref=e1317]:
+            - heading "Languages" [level=2] [ref=e1318]
+            - list [ref=e1322]:
+              - listitem [ref=e1323]:
+                - link "Kotlin 100.0%" [ref=e1324] [cursor=pointer]:
+                  - /url: /JetBrains/intellij-platform-plugin-template/search?l=kotlin
+                  - img [ref=e1325]
+                  - generic [ref=e1327]: Kotlin
+                  - generic [ref=e1328]: 100.0%
+  - contentinfo [ref=e1330]:
+    - heading "Footer" [level=2] [ref=e1331]
+    - generic [ref=e1332]:
+      - generic [ref=e1333]:
+        - link "GitHub Homepage" [ref=e1334] [cursor=pointer]:
+          - /url: https://github.com
+          - img [ref=e1335]
+        - generic [ref=e1337]: © 2026 GitHub, Inc.
+      - navigation "Footer" [ref=e1338]:
+        - heading "Footer navigation" [level=3] [ref=e1339]
+        - list "Footer navigation" [ref=e1340]:
+          - listitem [ref=e1341]:
+            - link "Terms" [ref=e1342] [cursor=pointer]:
+              - /url: https://docs.github.com/site-policy/github-terms/github-terms-of-service
+          - listitem [ref=e1343]:
+            - link "Privacy" [ref=e1344] [cursor=pointer]:
+              - /url: https://docs.github.com/site-policy/privacy-policies/github-privacy-statement
+          - listitem [ref=e1345]:
+            - link "Security" [ref=e1346] [cursor=pointer]:
+              - /url: https://github.com/security
+          - listitem [ref=e1347]:
+            - link "Status" [ref=e1348] [cursor=pointer]:
+              - /url: https://www.githubstatus.com/
+          - listitem [ref=e1349]:
+            - link "Community" [ref=e1350] [cursor=pointer]:
+              - /url: https://github.community/
+          - listitem [ref=e1351]:
+            - link "Docs" [ref=e1352] [cursor=pointer]:
+              - /url: https://docs.github.com/
+          - listitem [ref=e1353]:
+            - link "Contact" [ref=e1354] [cursor=pointer]:
+              - /url: https://support.github.com?tags=dotcom-footer
+          - listitem [ref=e1355]:
+            - button "Manage cookies" [ref=e1357] [cursor=pointer]
+          - listitem [ref=e1358]:
+            - button "Do not share my personal information" [ref=e1360] [cursor=pointer]

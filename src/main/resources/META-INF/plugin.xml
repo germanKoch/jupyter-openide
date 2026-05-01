@@ -1,0 +1,70 @@
+<idea-plugin>
+    <id>com.openide.jupyter</id>
+    <name>Jupyter Notebook</name>
+    <version>0.1.0</version>
+    <vendor>OpenIDE Community</vendor>
+    <description>Jupyter Notebook support for OpenIDE — open, view, edit, and execute .ipynb files using the project's Python environment.</description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType
+                name="Jupyter Notebook"
+                implementationClass="com.openide.jupyter.filetype.JupyterNotebookFileType"
+                fieldName="INSTANCE"
+                extensions="ipynb"/>
+
+        <fileEditorProvider
+                implementation="com.openide.jupyter.editor.JupyterNotebookEditorProvider"/>
+
+        <projectService
+                serviceImplementation="com.openide.jupyter.kernel.KernelRegistry"/>
+    </extensions>
+
+    <actions>
+        <group id="jupyter.toolbar" text="Jupyter" description="Jupyter Notebook actions">
+            <action id="jupyter.startKernel"
+                    class="com.openide.jupyter.actions.StartKernelAction"
+                    text="Start Kernel"
+                    description="Start Jupyter kernel for current notebook"/>
+            <action id="jupyter.stopKernel"
+                    class="com.openide.jupyter.actions.StopKernelAction"
+                    text="Stop Kernel"
+                    description="Stop the running kernel"/>
+            <action id="jupyter.restartKernel"
+                    class="com.openide.jupyter.actions.RestartKernelAction"
+                    text="Restart Kernel"
+                    description="Restart the kernel"/>
+            <action id="jupyter.interruptKernel"
+                    class="com.openide.jupyter.actions.InterruptKernelAction"
+                    text="Interrupt"
+                    description="Interrupt current execution"/>
+            <separator/>
+            <action id="jupyter.runCell"
+                    class="com.openide.jupyter.actions.RunCellAction"
+                    text="Run Cell"
+                    description="Execute the current cell">
+                <keyboard-shortcut keymap="$default" first-keystroke="shift ENTER"/>
+            </action>
+            <action id="jupyter.runAllCells"
+                    class="com.openide.jupyter.actions.RunAllCellsAction"
+                    text="Run All"
+                    description="Execute all cells sequentially">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift ENTER"/>
+            </action>
+            <separator/>
+            <action id="jupyter.addCodeCell"
+                    class="com.openide.jupyter.actions.AddCellAction"
+                    text="Add Code Cell"
+                    description="Insert a new code cell"/>
+            <action id="jupyter.addMarkdownCell"
+                    class="com.openide.jupyter.actions.AddMarkdownCellAction"
+                    text="Add Markdown Cell"
+                    description="Insert a new markdown cell"/>
+            <action id="jupyter.deleteCell"
+                    class="com.openide.jupyter.actions.DeleteCellAction"
+                    text="Delete Cell"
+                    description="Delete the selected cell"/>
+        </group>
+    </actions>
+</idea-plugin>
