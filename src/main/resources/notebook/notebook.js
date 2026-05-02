@@ -474,7 +474,26 @@ function getCellIndexByContainer(container, cellId) {
 
 // ── Edit Mode (Textarea overlay) ──
 
+function exitAllEditModes() {
+    var editingWrappers = document.querySelectorAll('.cell-source.editing');
+    for (var i = 0; i < editingWrappers.length; i++) {
+        var cell = editingWrappers[i].closest('.cell');
+        if (cell) exitEditMode(cell.dataset.cellId);
+    }
+    var editingMd = document.querySelectorAll('.cell.editing-markdown');
+    for (var i = 0; i < editingMd.length; i++) {
+        var cellId = editingMd[i].dataset.cellId;
+        var mdSource = document.getElementById('md-source-' + cellId);
+        if (mdSource && kotlinBridge) {
+            kotlinBridge.cellSourceChanged(cellId, mdSource.textContent);
+        }
+        editingMd[i].classList.remove('editing-markdown');
+    }
+}
+
 function enterEditMode(id) {
+    exitAllEditModes();
+
     var cell = document.getElementById('cell-' + id);
     if (!cell) return;
     var sourceWrapper = cell.querySelector('.cell-source');
@@ -482,6 +501,7 @@ function enterEditMode(id) {
     var backdrop = cell.querySelector('.source-backdrop');
     if (!sourceWrapper || !textarea || !backdrop) return;
 
+    selectCell(id);
     sourceWrapper.classList.add('editing');
     textarea.value = backdrop.textContent;
     syncTextareaHeight(id);
@@ -505,9 +525,11 @@ function enterEditMode(id) {
         }
         if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
             e.preventDefault();
-            exitEditMode(id);
-            if (kotlinBridge) kotlinBridge.runCell(id);
-            moveToNextCell(id);
+            e.stopPropagation();
+            var runId = id;
+            exitEditMode(runId);
+            if (kotlinBridge) kotlinBridge.runCell(runId);
+            moveToNextCell(runId);
             return;
         }
         if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
@@ -624,6 +646,8 @@ function makeReadOnly(id) {
 // ── Markdown Edit Mode ──
 
 function startEditMarkdown(id) {
+    exitAllEditModes();
+    selectCell(id);
     var cell = document.getElementById('cell-' + id);
     var mdSource = document.getElementById('md-source-' + id);
     if (cell && mdSource) {
@@ -730,9 +754,12 @@ function setCellExecuting(id, executing) {
 }
 
 function selectCell(id) {
-    if (selectedCellId) {
+    if (selectedCellId && selectedCellId !== id) {
         var prev = document.getElementById('cell-' + selectedCellId);
-        if (prev) prev.classList.remove('cell-selected');
+        if (prev) {
+            prev.classList.remove('cell-selected');
+            if (isEditing(selectedCellId)) exitEditMode(selectedCellId);
+        }
     }
     selectedCellId = id;
     var cell = document.getElementById('cell-' + id);
@@ -818,15 +845,15 @@ document.addEventListener('keydown', function(e) {
     }
 
     if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
+        if (!selectedCellId) return;
         var active = document.activeElement;
-        if (active && (active.tagName === 'TEXTAREA' || active.contentEditable === 'true')) return;
+        if (active && active.tagName === 'TEXTAREA') return;
+        if (active && active.contentEditable === 'true') return;
         e.preventDefault();
-        if (selectedCellId && kotlinBridge) {
-            var cell = document.getElementById('cell-' + selectedCellId);
-            if (cell && cell.dataset.cellType === 'code') {
-                kotlinBridge.runCell(selectedCellId);
-                moveToNextCell(selectedCellId);
-            }
+        var cell = document.getElementById('cell-' + selectedCellId);
+        if (cell && cell.dataset.cellType === 'code' && kotlinBridge) {
+            kotlinBridge.runCell(selectedCellId);
+            moveToNextCell(selectedCellId);
         }
     }
 });
