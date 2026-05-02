@@ -19,7 +19,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 class KernelManager(
     val pythonPath: String,
-    private val parentDisposable: Disposable
+    private val parentDisposable: Disposable,
+    private val workingDirectory: File? = null
 ) : Disposable {
 
     var status: KernelStatus = KernelStatus.DISCONNECTED
@@ -63,6 +64,7 @@ class KernelManager(
                 pythonPath, "-m", "ipykernel_launcher", "-f", connFile.absolutePath
             )
             cmd.withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
+            workingDirectory?.let { cmd.workDirectory = it }
 
             val handler = OSProcessHandler(cmd)
             handler.addProcessListener(object : ProcessAdapter() {

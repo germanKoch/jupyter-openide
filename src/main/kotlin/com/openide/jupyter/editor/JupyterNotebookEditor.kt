@@ -129,7 +129,8 @@ class JupyterNotebookEditor(
 
         Thread {
             try {
-                val km = KernelManager(pythonPath, this@JupyterNotebookEditor)
+                val notebookDir = file.parent?.let { java.io.File(it.path) }
+                val km = KernelManager(pythonPath, this@JupyterNotebookEditor, notebookDir)
                 km.onStatusChanged = { status ->
                     SwingUtilities.invokeLater {
                         statusLabel.text = "Kernel: ${status.name.lowercase()}"
@@ -235,9 +236,15 @@ class JupyterNotebookEditor(
                     }
                     "execute_result" -> {
                         val data = parseDataBundle(content.getAsJsonObject("data"))
-                        val output = CellOutput(OutputType.EXECUTE_RESULT, data = data)
-                        cell.outputs.add(output)
-                        notebookPanel.appendCellOutput(cell.id, output)
+                        val textPlain = data?.get("text/plain")?.toString() ?: ""
+                        val alreadyShown = cell.outputs.any {
+                            it.outputType == OutputType.STREAM && it.text?.trim() == textPlain.trim()
+                        }
+                        if (!alreadyShown) {
+                            val output = CellOutput(OutputType.EXECUTE_RESULT, data = data)
+                            cell.outputs.add(output)
+                            notebookPanel.appendCellOutput(cell.id, output)
+                        }
                     }
                     "display_data" -> {
                         val data = parseDataBundle(content.getAsJsonObject("data"))

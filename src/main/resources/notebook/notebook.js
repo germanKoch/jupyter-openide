@@ -427,7 +427,7 @@ function addCell(id, type, source, outputsHtml, executionCount) {
         sourceWrapper.appendChild(backdrop);
         sourceWrapper.appendChild(textarea);
 
-        sourceWrapper.ondblclick = function(e) {
+        sourceWrapper.onclick = function(e) {
             e.stopPropagation();
             if (cell.classList.contains('executing')) return;
             enterEditMode(id);
@@ -446,7 +446,7 @@ function addCell(id, type, source, outputsHtml, executionCount) {
         renderedDiv.id = 'md-rendered-' + id;
         renderedDiv.innerHTML = source;
 
-        renderedDiv.ondblclick = function(e) {
+        renderedDiv.onclick = function(e) {
             e.stopPropagation();
             if (cell.classList.contains('executing')) return;
             startEditMarkdown(id);
