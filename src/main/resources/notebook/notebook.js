@@ -525,11 +525,6 @@ function enterEditMode(id) {
         }
         if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
             e.preventDefault();
-            e.stopPropagation();
-            var runId = id;
-            exitEditMode(runId);
-            if (kotlinBridge) kotlinBridge.runCell(runId);
-            moveToNextCell(runId);
             return;
         }
         if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
@@ -629,6 +624,8 @@ function moveToNextCell(currentId) {
             scrollToCell(nextId);
             if (cells[i].dataset.cellType === 'code') {
                 enterEditMode(nextId);
+            } else if (cells[i].dataset.cellType === 'markdown') {
+                startEditMarkdown(nextId);
             }
             return;
         }
@@ -657,6 +654,10 @@ function startEditMarkdown(id) {
             if (kotlinBridge) kotlinBridge.cellSourceChanged(id, mdSource.textContent);
         };
         mdSource.onkeydown = function(e) {
+            if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                return;
+            }
             if (e.key === 'Escape') {
                 e.preventDefault();
                 if (kotlinBridge) kotlinBridge.cellSourceChanged(id, mdSource.textContent);
@@ -846,14 +847,23 @@ document.addEventListener('keydown', function(e) {
 
     if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
         if (!selectedCellId) return;
-        var active = document.activeElement;
-        if (active && active.tagName === 'TEXTAREA') return;
-        if (active && active.contentEditable === 'true') return;
         e.preventDefault();
-        var cell = document.getElementById('cell-' + selectedCellId);
-        if (cell && cell.dataset.cellType === 'code' && kotlinBridge) {
-            kotlinBridge.runCell(selectedCellId);
-            moveToNextCell(selectedCellId);
+        var cellId = selectedCellId;
+        var cell = document.getElementById('cell-' + cellId);
+        if (!cell) return;
+
+        if (isEditing(cellId)) {
+            exitEditMode(cellId);
         }
+        if (cell.classList.contains('editing-markdown')) {
+            var mdSource = document.getElementById('md-source-' + cellId);
+            if (mdSource && kotlinBridge) kotlinBridge.cellSourceChanged(cellId, mdSource.textContent);
+            cell.classList.remove('editing-markdown');
+        }
+
+        if (cell.dataset.cellType === 'code' && kotlinBridge) {
+            kotlinBridge.runCell(cellId);
+        }
+        moveToNextCell(cellId);
     }
 });
