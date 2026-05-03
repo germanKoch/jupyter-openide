@@ -37,3 +37,12 @@ kotlin {
 tasks.test {
     useJUnitPlatform()
 }
+
+tasks.register<Copy>("copyDist") {
+    from(tasks.named("buildPlugin").map { layout.buildDirectory.dir("distributions") })
+    into(layout.projectDirectory.dir("dist"))
+}
+
+tasks.named("buildPlugin") {
+    finalizedBy("copyDist")
+}
