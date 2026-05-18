@@ -2,7 +2,7 @@
     <id>com.openide.jupyter</id>
     <name>Jupyter Notebook</name>
     <version>0.1.0</version>
-    <vendor>OpenIDE Community</vendor>
+    <vendor>German Kochnev</vendor>
     <description>Jupyter Notebook support for OpenIDE — open, view, edit, and execute .ipynb files using the project's Python environment.</description>
 
     <depends>com.intellij.modules.platform</depends>
