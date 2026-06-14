@@ -287,7 +287,9 @@ body {
 .cmd-link {
     cursor: pointer;
     text-decoration: underline;
-    text-underline-offset: 2px;
+    /* 4px (vs diagnostics' 2px) so the link underline stacks below, rather than
+       overlapping, a wavy error/warning underline on the same identifier. */
+    text-underline-offset: 4px;
     text-decoration-color: #4fc1ff;
 }
 

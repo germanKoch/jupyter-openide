@@ -306,6 +306,7 @@ class JupyterNotebookEditor(
         cell.executionState = CellExecutionState.EXECUTING
         cell.outputs.clear()
 
+        var hadError = false
         val msgId = km.sendExecuteRequest(cell.source)
         km.registerCallback(msgId) { msg ->
             val msgType = msg.get("msg_type")?.asString ?: return@registerCallback
@@ -338,6 +339,7 @@ class JupyterNotebookEditor(
                         notebookPanel.appendCellOutput(cell.id, output)
                     }
                     "error" -> {
+                        hadError = true
                         val output = CellOutput(
                             OutputType.ERROR,
                             ename = content.get("ename")?.asString,
@@ -360,6 +362,7 @@ class JupyterNotebookEditor(
                             km.removeCallback(msgId)
                             notebook?.isDirty = true
                             scheduleAnalysis()
+                            notebookPanel.notifyCellExecuted(cell.id, !hadError)
                         }
                     }
                 }

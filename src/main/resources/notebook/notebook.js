@@ -6,6 +6,9 @@ let usageHighlightName = null;
 let lastShiftAt = 0;
 let cmdLinkName = null;
 let cmdLinkCellId = null;
+let cmdLinkPos = null;
+let diagTipTarget = null;
+let pendingAdvanceCellId = null;
 
 function initBridge(bridge) {
     kotlinBridge = bridge;
@@ -179,18 +182,22 @@ function diagAt(diags, line, col) {
     return null;
 }
 
-function renderHighlighted(tokens, diags, linkName) {
+function renderHighlighted(tokens, diags, linkName, linkPos) {
     diags = diags || [];
     var html = '';
     var line = 0, col = 0;
     for (var ti = 0; ti < tokens.length; ti++) {
         var tok = tokens[ti];
         var val = tok.value;
+        var tokLine = line, tokCol = col; // token start, for precise cmd-link matching
         var isIdent = (tok.type === 'text' || tok.type === 'known-var' || tok.type === 'builtin');
         var classes = [];
         if (tok.type !== 'text') classes.push('tok-' + tok.type);
         if (isIdent && usageHighlightName && val === usageHighlightName) classes.push('usage-highlight');
-        if (isIdent && linkName && val === linkName) classes.push('cmd-link');
+        if (isIdent && linkName && val === linkName && linkPos &&
+            tokLine === linkPos.line && tokCol === linkPos.col) {
+            classes.push('cmd-link');
+        }
         var openTok = classes.length ? ('<span class="' + classes.join(' ') + '">') : '';
         var closeTok = classes.length ? '</span>' : '';
 
@@ -298,12 +305,16 @@ function highlightBackdrop(cellId) {
     if (!cell || cell.dataset.cellType !== 'code') return;
     var backdrop = cell.querySelector('.source-backdrop');
     if (!backdrop) return;
+    // A re-render removes the span the tooltip is anchored to; hide it first so
+    // it can't be left floating (DOM removal does not fire mouseout).
+    if (diagTipTarget && backdrop.contains(diagTipTarget)) hideDiagTooltip();
     var text = getCellText(cellId);
     var cellIdx = getCellIndex(cellId);
     var scope = buildVariableScope(cellIdx);
     var tokens = tokenize(text, scope);
     var linkName = (cellId === cmdLinkCellId) ? cmdLinkName : null;
-    backdrop.innerHTML = renderHighlighted(tokens, diagnosticsByCell[cellId] || [], linkName);
+    var linkPos = (cellId === cmdLinkCellId) ? cmdLinkPos : null;
+    backdrop.innerHTML = renderHighlighted(tokens, diagnosticsByCell[cellId] || [], linkName, linkPos);
 }
 
 function highlightAllCells() {
@@ -555,6 +566,7 @@ function exitAllEditModes() {
 
 function enterEditMode(id) {
     exitAllEditModes();
+    hideDiagTooltip();
 
     var cell = document.getElementById('cell-' + id);
     if (!cell) return;
@@ -717,23 +729,34 @@ function isEditing(id) {
 
 function moveToNextCell(currentId) {
     var cells = document.querySelectorAll('#notebook-container .cell');
-    var found = false;
+    var idx = -1;
     for (var i = 0; i < cells.length; i++) {
-        if (cells[i].dataset.cellId === currentId) {
-            found = true;
-            continue;
+        if (cells[i].dataset.cellId === currentId) { idx = i; break; }
+    }
+    if (idx === -1) return;
+    if (idx < cells.length - 1) {
+        var nextEl = cells[idx + 1];
+        var nextId = nextEl.dataset.cellId;
+        selectCell(nextId);
+        scrollToCell(nextId);
+        if (nextEl.dataset.cellType === 'code') {
+            enterEditMode(nextId);
+        } else if (nextEl.dataset.cellType === 'markdown') {
+            startEditMarkdown(nextId);
         }
-        if (found) {
-            var nextId = cells[i].dataset.cellId;
-            selectCell(nextId);
-            scrollToCell(nextId);
-            if (cells[i].dataset.cellType === 'code') {
-                enterEditMode(nextId);
-            } else if (cells[i].dataset.cellType === 'markdown') {
-                startEditMarkdown(nextId);
-            }
-            return;
-        }
+    } else {
+        // Last cell: create a new code cell below and focus it.
+        // insertCellAfter (triggered via the bridge) selects + edits the new cell.
+        if (kotlinBridge) kotlinBridge.addCell(currentId, 'code');
+    }
+}
+
+function onCellExecuted(cellId, success) {
+    if (cellId === pendingAdvanceCellId) {
+        pendingAdvanceCellId = null;
+        // Only advance if the user is still on this cell (don't yank focus away
+        // if they navigated elsewhere while it was running).
+        if (success && cellId === selectedCellId) moveToNextCell(cellId);
     }
 }
 
@@ -820,14 +843,27 @@ function getDiagTooltip() {
     return t;
 }
 
-function showDiagTooltip(target) {
+function pickDiagRect(target, e) {
+    var rects = target.getClientRects();
+    if (rects && rects.length > 1 && e) {
+        for (var i = 0; i < rects.length; i++) {
+            var rc = rects[i];
+            if (e.clientY >= rc.top && e.clientY <= rc.bottom) return rc;
+        }
+        return rects[0];
+    }
+    return target.getBoundingClientRect();
+}
+
+function showDiagTooltip(target, e) {
     var msg = target.getAttribute('data-diag');
     if (!msg) return;
     var sev = target.getAttribute('data-sev') || 'error';
     var tip = getDiagTooltip();
     tip.textContent = msg;
     tip.className = 'visible diag-tip-' + sev;
-    var r = target.getBoundingClientRect();
+    diagTipTarget = target;
+    var r = pickDiagRect(target, e);
     var tw = tip.offsetWidth, th = tip.offsetHeight;
     var left = r.left;
     if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
@@ -841,11 +877,12 @@ function showDiagTooltip(target) {
 function hideDiagTooltip() {
     var t = document.getElementById('diag-tooltip');
     if (t) t.className = '';
+    diagTipTarget = null;
 }
 
 document.addEventListener('mouseover', function(e) {
     var d = e.target.closest && e.target.closest('.diag');
-    if (d) showDiagTooltip(d);
+    if (d) showDiagTooltip(d, e);
 });
 
 document.addEventListener('mouseout', function(e) {
@@ -858,39 +895,84 @@ document.addEventListener('mouseout', function(e) {
 
 // ── Cmd/Ctrl-hover link affordance (underline + pointer cursor) ──
 
+function clearCmdLink() {
+    if (cmdLinkCellId) {
+        var c = cmdLinkCellId;
+        cmdLinkName = null;
+        cmdLinkCellId = null;
+        cmdLinkPos = null;
+        highlightBackdrop(c);
+    }
+}
+
+// Returns {word, line, col} for the identifier under the cursor, where line/col
+// are the word's 0-based start position (code points) within the cell source.
+function wordInfoAtBackdropPoint(bd, e) {
+    if (!document.caretRangeFromPoint) return null;
+    var range = document.caretRangeFromPoint(e.clientX, e.clientY);
+    if (!range) return null;
+    var node = range.startContainer;
+    if (!node || node.nodeType !== 3) return null;
+    var text = node.textContent || '';
+    var l = range.startOffset, r = range.startOffset;
+    while (l > 0 && /\w/.test(text[l - 1])) l--;
+    while (r < text.length && /\w/.test(text[r])) r++;
+    var word = text.slice(l, r);
+    if (!/^[A-Za-z_]\w*$/.test(word)) return null;
+    var pre = document.createRange();
+    pre.selectNodeContents(bd);
+    pre.setEnd(node, l);
+    var before = pre.toString();
+    var lastNl = before.lastIndexOf('\n');
+    var lineText = (lastNl === -1) ? before : before.slice(lastNl + 1);
+    return {
+        word: word,
+        line: (before.match(/\n/g) || []).length,
+        col: Array.from(lineText).length
+    };
+}
+
 function updateCmdHover(e) {
     var down = e.metaKey || e.ctrlKey;
-    var name = '', cellId = null;
+    // Don't disturb an active text selection (e.g. Cmd+drag) by re-rendering.
+    var sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return;
+
+    var info = null, cellId = null;
     if (down) {
         var bd = e.target.closest && e.target.closest('.source-backdrop');
         if (bd) {
             var cellEl = bd.closest('.cell');
             var src = bd.closest('.cell-source');
             if (cellEl && src && !src.classList.contains('editing')) {
-                var w = wordAtBackdropPoint(bd, e);
-                if (w) { name = w; cellId = cellEl.dataset.cellId; }
+                info = wordInfoAtBackdropPoint(bd, e);
+                if (info) cellId = cellEl.dataset.cellId;
             }
         }
     }
-    if (name !== (cmdLinkName || '') || cellId !== cmdLinkCellId) {
+    var name = info ? info.word : '';
+    var changed = name !== (cmdLinkName || '') || cellId !== cmdLinkCellId ||
+        (info && cmdLinkPos && (info.line !== cmdLinkPos.line || info.col !== cmdLinkPos.col));
+    if (changed) {
         var prevCell = cmdLinkCellId;
         cmdLinkName = name || null;
         cmdLinkCellId = cellId;
+        cmdLinkPos = info ? { line: info.line, col: info.col } : null;
         if (prevCell && prevCell !== cellId) highlightBackdrop(prevCell);
         if (cellId) highlightBackdrop(cellId);
-        else if (prevCell) highlightBackdrop(prevCell);
     }
 }
 
 document.addEventListener('mousemove', updateCmdHover);
 
+// Robust clears: a keyup with no modifier held, or focus/visibility loss
+// (the Meta/Control keyup is often not delivered to the JCEF document).
 document.addEventListener('keyup', function(e) {
-    if ((e.key === 'Meta' || e.key === 'Control') && cmdLinkCellId) {
-        var c = cmdLinkCellId;
-        cmdLinkName = null;
-        cmdLinkCellId = null;
-        highlightBackdrop(c);
-    }
+    if (!(e.metaKey || e.ctrlKey)) clearCmdLink();
+});
+window.addEventListener('blur', clearCmdLink);
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) clearCmdLink();
 });
 
 // ── Existing Functions (updated for textarea overlay) ──
@@ -1336,8 +1418,12 @@ document.addEventListener('keydown', function(e) {
         }
 
         if (cell.dataset.cellType === 'code' && kotlinBridge) {
+            // Advance only once the cell finishes successfully (onCellExecuted).
+            pendingAdvanceCellId = cellId;
             kotlinBridge.runCell(cellId);
+        } else {
+            // Markdown has no kernel execution; advance immediately.
+            moveToNextCell(cellId);
         }
-        moveToNextCell(cellId);
     }
 });

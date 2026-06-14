@@ -181,6 +181,10 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
         executeJs("setDiagnostics('${escapeJs(json)}')")
     }
 
+    fun notifyCellExecuted(cellId: String, success: Boolean) {
+        executeJs("onCellExecuted('${escapeJs(cellId)}', $success)")
+    }
+
     fun makeCellEditable(cellId: String) {
         executeJs("makeEditable('${escapeJs(cellId)}')")
     }
