@@ -43,9 +43,7 @@
             <action id="jupyter.runCell"
                     class="com.openide.jupyter.actions.RunCellAction"
                     text="Run Cell"
-                    description="Execute the current cell">
-                <keyboard-shortcut keymap="$default" first-keystroke="shift ENTER"/>
-            </action>
+                    description="Execute the current cell"/>
             <action id="jupyter.runAllCells"
                     class="com.openide.jupyter.actions.RunAllCellsAction"
                     text="Run All"
