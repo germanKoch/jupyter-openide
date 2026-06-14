@@ -1,5 +1,11 @@
 package com.openide.jupyter.editor
 
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionPlaces
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.PlatformDataKeys
+import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileDocumentManagerListener
 import com.intellij.openapi.fileEditor.FileEditor
@@ -9,6 +15,7 @@ import com.intellij.openapi.util.UserDataHolderBase
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationType
+import com.openide.jupyter.analysis.NotebookAnalyzer
 import com.openide.jupyter.kernel.KernelManager
 import com.openide.jupyter.kernel.KernelRegistry
 import com.openide.jupyter.kernel.KernelStatus
@@ -16,6 +23,10 @@ import com.openide.jupyter.model.*
 import com.openide.jupyter.python.PythonSdkDetector
 import java.beans.PropertyChangeListener
 import java.beans.PropertyChangeSupport
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import javax.swing.*
 
 class JupyterNotebookEditor(
@@ -35,6 +46,28 @@ class JupyterNotebookEditor(
     var kernelManager: KernelManager? = null
         private set
 
+    @Volatile private var cachedPython: String? = null
+
+    private val analyzer: NotebookAnalyzer by lazy {
+        NotebookAnalyzer(
+            pythonPathProvider = {
+                kernelManager?.pythonPath ?: cachedPython ?: run {
+                    val p = PythonSdkDetector.detectPythonInterpreter(project, file.path)
+                    cachedPython = p
+                    p
+                }
+            },
+            workingDirectory = file.parent?.let { java.io.File(it.path) }
+        )
+    }
+
+    private val analysisScheduler = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "jupyter-analysis-debounce").apply { isDaemon = true }
+    }
+    @Volatile private var analysisFuture: ScheduledFuture<*>? = null
+    @Volatile private var pendingSnapshot: List<Pair<String, String>> = emptyList()
+    private val analysisGeneration = AtomicInteger(0)
+
     init {
         toolbar.add(statusLabel)
         mainPanel.add(toolbar, java.awt.BorderLayout.NORTH)
@@ -52,6 +85,7 @@ class JupyterNotebookEditor(
                 notebook?.isDirty = true
                 propertyChangeSupport.firePropertyChange("modified", false, true)
             }
+            scheduleAnalysis()
         }
 
         notebookPanel.onRunCell = { cellId ->
@@ -75,6 +109,7 @@ class JupyterNotebookEditor(
                 notebookPanel.insertCellAfter(afterCellId, newCell)
                 nb.isDirty = true
                 propertyChangeSupport.firePropertyChange("modified", false, true)
+                scheduleAnalysis()
             }
         }
 
@@ -84,11 +119,16 @@ class JupyterNotebookEditor(
                 notebookPanel.removeCellFromView(cellId)
                 nb.isDirty = true
                 propertyChangeSupport.firePropertyChange("modified", false, true)
+                scheduleAnalysis()
             }
         }
 
         notebookPanel.onSaveNotebook = {
             saveNotebook()
+        }
+
+        notebookPanel.onIdeAction = { actionId ->
+            runIdeAction(actionId)
         }
 
         val connection = ApplicationManager.getApplication().messageBus.connect(this)
@@ -107,11 +147,56 @@ class JupyterNotebookEditor(
         result.onSuccess { nb ->
             notebook = nb
             notebookPanel.renderNotebook(nb)
+            scheduleAnalysis()
         }
         result.onFailure {
             val errorPanel = JLabel("<html>Failed to open notebook: ${it.message}<br>The file may be malformed.</html>")
             mainPanel.removeAll()
             mainPanel.add(errorPanel, java.awt.BorderLayout.CENTER)
+        }
+    }
+
+    private fun scheduleAnalysis() {
+        val nb = notebook ?: return
+        // Snapshot on the (mutating) calling thread so the analyzer thread never
+        // iterates notebook.cells concurrently with a structural change.
+        pendingSnapshot = try {
+            nb.cells.filter { it.cellType == CellType.CODE }.map { it.id to it.source }
+        } catch (_: Exception) {
+            return
+        }
+        val gen = analysisGeneration.incrementAndGet()
+        analysisFuture?.cancel(false)
+        analysisFuture = try {
+            analysisScheduler.schedule({ runAnalysis(gen) }, 600, TimeUnit.MILLISECONDS)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun runAnalysis(gen: Int) {
+        if (gen != analysisGeneration.get()) return
+        analyzer.analyze(pendingSnapshot) { diags ->
+            if (gen != analysisGeneration.get()) return@analyze
+            SwingUtilities.invokeLater {
+                // Re-check on the EDT: a keystroke may have arrived since the
+                // analyzer thread passed its guard, making this result stale.
+                if (gen == analysisGeneration.get()) notebookPanel.setDiagnostics(diags)
+            }
+        }
+    }
+
+    private fun runIdeAction(actionId: String) {
+        try {
+            val action = ActionManager.getInstance().getAction(actionId) ?: return
+            val dataContext = SimpleDataContext.builder()
+                .add(CommonDataKeys.PROJECT, project)
+                .add(PlatformDataKeys.CONTEXT_COMPONENT, notebookPanel.component)
+                .build()
+            val event = AnActionEvent.createFromAnAction(action, null, ActionPlaces.UNKNOWN, dataContext)
+            action.actionPerformed(event)
+        } catch (_: Exception) {
+            // Action unavailable in this context; ignore.
         }
     }
 
@@ -274,6 +359,7 @@ class JupyterNotebookEditor(
                             notebookPanel.setCellExecuting(cell.id, false)
                             km.removeCallback(msgId)
                             notebook?.isDirty = true
+                            scheduleAnalysis()
                         }
                     }
                 }
@@ -331,6 +417,9 @@ class JupyterNotebookEditor(
     }
 
     override fun dispose() {
+        analysisFuture?.cancel(false)
+        analysisScheduler.shutdownNow()
+        analyzer.dispose()
         stopKernel()
     }
 }

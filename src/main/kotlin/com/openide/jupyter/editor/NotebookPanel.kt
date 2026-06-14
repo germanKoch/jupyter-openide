@@ -1,9 +1,11 @@
 package com.openide.jupyter.editor
 
+import com.google.gson.Gson
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.ui.jcef.JBCefJSQuery
+import com.openide.jupyter.analysis.Diagnostic
 import com.openide.jupyter.model.*
 import org.cef.browser.CefBrowser
 import org.cef.handler.CefLoadHandlerAdapter
@@ -19,6 +21,9 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
     private val addCellQuery: JBCefJSQuery = JBCefJSQuery.create(browser as com.intellij.ui.jcef.JBCefBrowserBase)
     private val deleteCellQuery: JBCefJSQuery = JBCefJSQuery.create(browser as com.intellij.ui.jcef.JBCefBrowserBase)
     private val saveNotebookQuery: JBCefJSQuery = JBCefJSQuery.create(browser as com.intellij.ui.jcef.JBCefBrowserBase)
+    private val ideActionQuery: JBCefJSQuery = JBCefJSQuery.create(browser as com.intellij.ui.jcef.JBCefBrowserBase)
+
+    private val gson = Gson()
 
     var selectedCellId: String? = null
         private set
@@ -29,6 +34,7 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
     var onAddCell: ((String, String) -> Unit)? = null
     var onDeleteCell: ((String) -> Unit)? = null
     var onSaveNotebook: (() -> Unit)? = null
+    var onIdeAction: ((String) -> Unit)? = null
 
     private var pendingNotebook: Notebook? = null
     private var loaded = false
@@ -79,6 +85,13 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
         saveNotebookQuery.addHandler {
             javax.swing.SwingUtilities.invokeLater {
                 onSaveNotebook?.invoke()
+            }
+            null
+        }
+
+        ideActionQuery.addHandler { actionId ->
+            javax.swing.SwingUtilities.invokeLater {
+                onIdeAction?.invoke(actionId)
             }
             null
         }
@@ -161,6 +174,11 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
 
     fun setCellExecuting(cellId: String, executing: Boolean) {
         executeJs("setCellExecuting('${escapeJs(cellId)}', $executing)")
+    }
+
+    fun setDiagnostics(diagnostics: List<Diagnostic>) {
+        val json = gson.toJson(diagnostics)
+        executeJs("setDiagnostics('${escapeJs(json)}')")
     }
 
     fun makeCellEditable(cellId: String) {
@@ -265,6 +283,7 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
         val addCellHandler = addCellQuery.inject("data")
         val deleteCellHandler = deleteCellQuery.inject("id")
         val saveHandler = saveNotebookQuery.inject("'save'")
+        val ideActionHandler = ideActionQuery.inject("actionId")
         executeJs("""
             initBridge({
                 cellSelected: function(id) { $selectHandler },
@@ -272,7 +291,8 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
                 runCell: function(id) { $runCellHandler },
                 addCell: function(afterId, type) { var data = afterId + ' ' + type; $addCellHandler },
                 deleteCell: function(id) { $deleteCellHandler },
-                saveNotebook: function() { $saveHandler }
+                saveNotebook: function() { $saveHandler },
+                runIdeAction: function(actionId) { $ideActionHandler }
             });
         """.trimIndent())
     }

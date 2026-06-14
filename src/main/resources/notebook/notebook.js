@@ -1,6 +1,9 @@
 let selectedCellId = null;
 let kotlinBridge = null;
 let highlightDebounceTimer = null;
+let diagnosticsByCell = {};
+let usageHighlightName = null;
+let lastShiftAt = 0;
 
 function initBridge(bridge) {
     kotlinBridge = bridge;
@@ -158,16 +161,60 @@ function escapeHtmlJS(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function renderHighlighted(tokens) {
+function attrEscape(text) {
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function diagAt(diags, line, col) {
+    for (var i = 0; i < diags.length; i++) {
+        var d = diags[i];
+        if (d.line === line && col >= d.col && col < d.endCol) return d;
+    }
+    return null;
+}
+
+function renderHighlighted(tokens, diags) {
+    diags = diags || [];
     var html = '';
+    var line = 0, col = 0;
     for (var ti = 0; ti < tokens.length; ti++) {
         var tok = tokens[ti];
-        var escaped = escapeHtmlJS(tok.value);
-        if (tok.type === 'text') {
-            html += escaped;
-        } else {
-            html += '<span class="tok-' + tok.type + '">' + escaped + '</span>';
+        var val = tok.value;
+        var isIdent = (tok.type === 'text' || tok.type === 'known-var' || tok.type === 'builtin');
+        var classes = [];
+        if (tok.type !== 'text') classes.push('tok-' + tok.type);
+        if (isIdent && usageHighlightName && val === usageHighlightName) classes.push('usage-highlight');
+        var openTok = classes.length ? ('<span class="' + classes.join(' ') + '">') : '';
+        var closeTok = classes.length ? '</span>' : '';
+
+        html += openTok;
+        var chars = Array.from(val); // iterate by code point so columns match the analyzer
+        var inDiag = false, curDiag = null;
+        for (var ci = 0; ci < chars.length; ci++) {
+            var ch = chars[ci];
+            if (ch === '\n') {
+                if (inDiag) { html += '</span>'; inDiag = false; curDiag = null; }
+                html += '\n';
+                line++; col = 0;
+                continue;
+            }
+            var d = diags.length ? diagAt(diags, line, col) : null;
+            if (d && (!inDiag || d !== curDiag)) {
+                if (inDiag) html += '</span>';
+                html += '<span class="diag diag-' + d.severity + '" title="' + attrEscape(d.message) + '">';
+                inDiag = true; curDiag = d;
+            } else if (!d && inDiag) {
+                html += '</span>'; inDiag = false; curDiag = null;
+            }
+            html += escapeHtmlJS(ch);
+            col++;
         }
+        if (inDiag) html += '</span>';
+        html += closeTok;
     }
     return html;
 }
@@ -251,7 +298,7 @@ function highlightBackdrop(cellId) {
     var cellIdx = getCellIndex(cellId);
     var scope = buildVariableScope(cellIdx);
     var tokens = tokenize(text, scope);
-    backdrop.innerHTML = renderHighlighted(tokens);
+    backdrop.innerHTML = renderHighlighted(tokens, diagnosticsByCell[cellId] || []);
 }
 
 function highlightAllCells() {
@@ -414,7 +461,7 @@ function addCell(id, type, source, outputsHtml, executionCount) {
         var cellIdx = getCellIndexByContainer(container, id);
         var scope = buildVariableScope(cellIdx >= 0 ? cellIdx : 9999);
         var tokens = tokenize(decodedSource, scope);
-        backdrop.innerHTML = renderHighlighted(tokens);
+        backdrop.innerHTML = renderHighlighted(tokens, diagnosticsByCell[id] || []);
 
         var textarea = document.createElement('textarea');
         textarea.className = 'source-input';
@@ -430,6 +477,15 @@ function addCell(id, type, source, outputsHtml, executionCount) {
         sourceWrapper.onclick = function(e) {
             e.stopPropagation();
             if (cell.classList.contains('executing')) return;
+            if ((e.metaKey || e.ctrlKey) && !sourceWrapper.classList.contains('editing')) {
+                var w = wordAtBackdropPoint(backdrop, e);
+                if (w) {
+                    e.preventDefault();
+                    gotoDefinition(w, id);
+                    return;
+                }
+            }
+            clearUsageHighlight();
             enterEditMode(id);
         };
 
@@ -449,6 +505,7 @@ function addCell(id, type, source, outputsHtml, executionCount) {
         renderedDiv.onclick = function(e) {
             e.stopPropagation();
             if (cell.classList.contains('executing')) return;
+            clearUsageHighlight();
             startEditMarkdown(id);
         };
 
@@ -520,15 +577,49 @@ function enterEditMode(id) {
         }
         if (e.key === 'Escape') {
             e.preventDefault();
+            usageHighlightName = null;
             exitEditMode(id);
+            scheduleHighlightAll();
             return;
         }
         if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
             e.preventDefault();
             return;
         }
+        if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'b' || e.key === 'B')) {
+            e.preventDefault();
+            var bw = wordAtIndex(textarea.value, textarea.selectionStart);
+            if (bw) gotoDefinition(bw, id);
+            return;
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+            e.preventDefault();
+            toggleComment(textarea);
+            return;
+        }
+        if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+            e.preventDefault();
+            duplicateSelection(textarea);
+            return;
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Backspace') {
+            e.preventDefault();
+            deleteLine(textarea);
+            return;
+        }
+        if (e.altKey && e.shiftKey && e.key === 'ArrowUp') {
+            e.preventDefault();
+            moveLine(textarea, -1);
+            return;
+        }
+        if (e.altKey && e.shiftKey && e.key === 'ArrowDown') {
+            e.preventDefault();
+            moveLine(textarea, 1);
+            return;
+        }
         if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
             e.preventDefault();
+            e.stopPropagation();
             if (kotlinBridge) kotlinBridge.saveNotebook();
             return;
         }
@@ -574,12 +665,21 @@ function enterEditMode(id) {
     textarea.oninput = function() {
         var text = textarea.value;
         if (kotlinBridge) kotlinBridge.cellSourceChanged(id, text);
-        var cellIdx = getCellIndex(id);
-        var scope = buildVariableScope(cellIdx);
-        var tokens = tokenize(text, scope);
-        backdrop.innerHTML = renderHighlighted(tokens);
+        // Diagnostics become stale the moment the text changes; drop them
+        // until the analyzer returns fresh results.
+        if (diagnosticsByCell[id]) delete diagnosticsByCell[id];
+        highlightBackdrop(id);
         syncTextareaHeight(id);
         scheduleHighlightAll();
+    };
+
+    textarea.onclick = function(e) {
+        if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            var w = wordAtIndex(textarea.value, textarea.selectionStart);
+            if (w) gotoDefinition(w, id);
+        }
     };
 
     textarea.onscroll = function() {
@@ -665,6 +765,7 @@ function startEditMarkdown(id) {
             }
             if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
+                e.stopPropagation();
                 if (kotlinBridge) kotlinBridge.saveNotebook();
             }
         };
@@ -837,8 +938,291 @@ function insertCellAfter(afterId, newId, type, source, outputsHtml, executionCou
     if (type === 'code') enterEditMode(newId);
 }
 
+// ── Diagnostics ──
+
+function setDiagnostics(json) {
+    var arr;
+    try { arr = JSON.parse(json); } catch (e) { return; }
+    diagnosticsByCell = {};
+    for (var i = 0; i < arr.length; i++) {
+        var d = arr[i];
+        if (!diagnosticsByCell[d.cellId]) diagnosticsByCell[d.cellId] = [];
+        diagnosticsByCell[d.cellId].push(d);
+    }
+    highlightAllCells();
+}
+
+// ── Go to definition / usages ──
+
+function wordAtIndex(text, idx) {
+    if (idx < 0) idx = 0;
+    if (idx > text.length) idx = text.length;
+    var l = idx, r = idx;
+    while (l > 0 && /\w/.test(text[l - 1])) l--;
+    while (r < text.length && /\w/.test(text[r])) r++;
+    var w = text.slice(l, r);
+    if (/^[A-Za-z_]\w*$/.test(w)) return w;
+    return '';
+}
+
+function wordAtBackdropPoint(el, e) {
+    if (!document.caretRangeFromPoint) return '';
+    var range = document.caretRangeFromPoint(e.clientX, e.clientY);
+    if (!range) return '';
+    var node = range.startContainer;
+    // Only a text-node container gives a real character offset; an element
+    // container reports a child-node index, which would yield a bogus word.
+    if (!node || node.nodeType !== 3) return '';
+    return wordAtIndex(node.textContent || '', range.startOffset);
+}
+
+function clearUsageHighlight() {
+    if (usageHighlightName !== null) {
+        usageHighlightName = null;
+        highlightAllCells();
+    }
+}
+
+function extractDefinitions(source) {
+    var defs = [];
+    var lines = source.split('\n');
+    for (var li = 0; li < lines.length; li++) {
+        var line = lines[li];
+        var lead = line.length - line.trimStart().length;
+        var trimmed = line.trimStart();
+        var m;
+        function pushDef(name, colInTrimmed) {
+            defs.push({ name: name, line: li, col: lead + (colInTrimmed || 0) });
+        }
+        if ((m = trimmed.match(/^(\w+)\s*=(?!=)/))) pushDef(m[1], 0);
+        else if ((m = trimmed.match(/^(\w+)\s*:[^=]*=(?!=)/))) pushDef(m[1], 0);
+        if ((m = trimmed.match(/^def\s+(\w+)/))) pushDef(m[1], trimmed.indexOf(m[1], 3));
+        if ((m = trimmed.match(/^class\s+(\w+)/))) pushDef(m[1], trimmed.indexOf(m[1], 5));
+        if ((m = trimmed.match(/^import\s+(.+)/))) {
+            m[1].split(',').forEach(function(part) {
+                var as = part.trim().match(/(\w[\w.]*)\s+as\s+(\w+)/);
+                if (as) pushDef(as[2], 0);
+                else { var n = part.trim().match(/^(\w+)/); if (n) pushDef(n[1], 0); }
+            });
+        }
+        if ((m = trimmed.match(/^from\s+[\w.]+\s+import\s+(.+)/))) {
+            m[1].replace(/[()]/g, '').split(',').forEach(function(part) {
+                var as = part.trim().match(/(\w+)\s+as\s+(\w+)/);
+                if (as) pushDef(as[2], 0);
+                else { var n = part.trim().match(/^(\w+)/); if (n && n[1] !== '*') pushDef(n[1], 0); }
+            });
+        }
+        if ((m = trimmed.match(/^for\s+(\w+)\s+in/))) pushDef(m[1], trimmed.indexOf(m[1], 3));
+        if (/^(?:async\s+)?with\b/.test(trimmed)) {
+            var wre = /\bas\s+(\w+)/g, wm;
+            while ((wm = wre.exec(trimmed))) pushDef(wm[1], wm.index + wm[0].indexOf(wm[1]));
+        }
+    }
+    return defs;
+}
+
+function findDefinition(name, currentCellId) {
+    var cells = document.querySelectorAll('#notebook-container .cell');
+    var codeIds = [];
+    var curPos = -1;
+    for (var i = 0; i < cells.length; i++) {
+        if (cells[i].dataset.cellType === 'code') {
+            codeIds.push(cells[i].dataset.cellId);
+            if (cells[i].dataset.cellId === currentCellId) curPos = codeIds.length - 1;
+        }
+    }
+    var searchOrder = [];
+    if (curPos >= 0) {
+        searchOrder.push(codeIds[curPos]);
+        for (var j = curPos - 1; j >= 0; j--) searchOrder.push(codeIds[j]);
+    } else {
+        searchOrder = codeIds.slice();
+    }
+    for (var k = 0; k < searchOrder.length; k++) {
+        var cid = searchOrder[k];
+        var defs = extractDefinitions(getCellText(cid));
+        for (var di = 0; di < defs.length; di++) {
+            if (defs[di].name === name) {
+                return { cellId: cid, line: defs[di].line, col: defs[di].col };
+            }
+        }
+    }
+    return null;
+}
+
+function gotoDefinition(name, currentCellId) {
+    usageHighlightName = name;
+    var loc = findDefinition(name, currentCellId);
+    if (!loc) {
+        highlightAllCells();
+        return;
+    }
+    selectCell(loc.cellId);
+    enterEditMode(loc.cellId);
+    var ta = document.getElementById('cell-' + loc.cellId);
+    ta = ta && ta.querySelector('.source-input');
+    if (ta) {
+        var lines = ta.value.split('\n');
+        var idx = 0;
+        for (var i = 0; i < loc.line && i < lines.length; i++) idx += lines[i].length + 1;
+        idx += Math.min(loc.col, (lines[loc.line] || '').length);
+        ta.selectionStart = ta.selectionEnd = idx;
+        ta.focus();
+    }
+    scrollToCell(loc.cellId);
+    highlightAllCells();
+}
+
+// ── In-cell editor operations ──
+
+function toggleComment(ta) {
+    var v = ta.value, s = ta.selectionStart, e = ta.selectionEnd;
+    var startLineStart = v.lastIndexOf('\n', s - 1) + 1;
+    // A selection that ends exactly at a line start belongs to the previous line.
+    var ee = (e > s && e > 0 && v.charAt(e - 1) === '\n') ? e - 1 : e;
+    var endLineEnd = v.indexOf('\n', ee);
+    if (endLineEnd === -1) endLineEnd = v.length;
+    var block = v.substring(startLineStart, endLineEnd);
+    var lines = block.split('\n');
+    var allCommented = lines.every(function(l) {
+        return l.trim() === '' || l.trimStart().charAt(0) === '#';
+    });
+    var newLines;
+    if (allCommented) {
+        newLines = lines.map(function(l) {
+            if (l.trim() === '') return l;
+            var lead = l.length - l.trimStart().length;
+            return l.slice(0, lead) + l.slice(lead).replace(/^#\s?/, '');
+        });
+    } else {
+        var minIndent = Infinity;
+        lines.forEach(function(l) {
+            if (l.trim() !== '') {
+                var ind = l.length - l.trimStart().length;
+                if (ind < minIndent) minIndent = ind;
+            }
+        });
+        if (minIndent === Infinity) minIndent = 0;
+        newLines = lines.map(function(l) {
+            if (l.trim() === '') return l;
+            return l.slice(0, minIndent) + '# ' + l.slice(minIndent);
+        });
+    }
+    var newBlock = newLines.join('\n');
+    ta.value = v.substring(0, startLineStart) + newBlock + v.substring(endLineEnd);
+    ta.selectionStart = startLineStart;
+    ta.selectionEnd = startLineStart + newBlock.length;
+    ta.dispatchEvent(new Event('input'));
+}
+
+function duplicateSelection(ta) {
+    var v = ta.value, s = ta.selectionStart, e = ta.selectionEnd;
+    if (s !== e) {
+        var sel = v.substring(s, e);
+        ta.value = v.substring(0, e) + sel + v.substring(e);
+        ta.selectionStart = e;
+        ta.selectionEnd = e + sel.length;
+    } else {
+        var ls = v.lastIndexOf('\n', s - 1) + 1;
+        var le = v.indexOf('\n', s);
+        if (le === -1) le = v.length;
+        var lineText = v.substring(ls, le);
+        ta.value = v.substring(0, le) + '\n' + lineText + v.substring(le);
+        ta.selectionStart = ta.selectionEnd = s + lineText.length + 1;
+    }
+    ta.dispatchEvent(new Event('input'));
+}
+
+function deleteLine(ta) {
+    var v = ta.value, s = ta.selectionStart;
+    var ls = v.lastIndexOf('\n', s - 1) + 1;
+    var le = v.indexOf('\n', s);
+    var removeStart = ls;
+    var removeEnd = (le === -1) ? v.length : le + 1;
+    if (le === -1 && ls > 0) removeStart = ls - 1;
+    ta.value = v.substring(0, removeStart) + v.substring(removeEnd);
+    ta.selectionStart = ta.selectionEnd = Math.min(removeStart, ta.value.length);
+    ta.dispatchEvent(new Event('input'));
+}
+
+function moveLine(ta, dir) {
+    var v = ta.value, s = ta.selectionStart, e = ta.selectionEnd;
+    var lines = v.split('\n');
+    function lineAt(off) {
+        var idx = 0, acc = 0;
+        for (; idx < lines.length; idx++) {
+            if (acc + lines[idx].length >= off) break;
+            acc += lines[idx].length + 1;
+        }
+        return { idx: Math.min(idx, lines.length - 1), acc: acc };
+    }
+    var startInfo = lineAt(s);
+    var startL = startInfo.idx;
+    var endInfo = lineAt(e);
+    var endL = endInfo.idx;
+    // selection ending exactly at a line start does not include that line
+    if (e > s && e === endInfo.acc && endL > startL) endL -= 1;
+
+    if (dir < 0 ? startL - 1 < 0 : endL + 1 >= lines.length) return;
+
+    var block = lines.splice(startL, endL - startL + 1);
+    var insertAt = (dir < 0) ? startL - 1 : startL + 1;
+    Array.prototype.splice.apply(lines, [insertAt, 0].concat(block));
+    ta.value = lines.join('\n');
+
+    var off = 0;
+    for (var i = 0; i < insertAt; i++) off += lines[i].length + 1;
+    if (s === e) {
+        var colInLine = s - startInfo.acc;
+        ta.selectionStart = ta.selectionEnd = off + Math.min(colInLine, lines[insertAt].length);
+    } else {
+        var blockLen = 0;
+        for (var j = 0; j < block.length; j++) {
+            blockLen += lines[insertAt + j].length;
+            if (j < block.length - 1) blockLen += 1;
+        }
+        ta.selectionStart = off;
+        ta.selectionEnd = off + blockLen;
+    }
+    ta.dispatchEvent(new Event('input'));
+}
+
+// Forward selected OpenIDE-global shortcuts to the IDE action system.
+function forwardIdeShortcut(e) {
+    var meta = e.metaKey || e.ctrlKey;
+    var key = e.key.toLowerCase();
+    if (meta && e.shiftKey && key === 'f') return 'FindInPath';
+    if (meta && e.shiftKey && key === 'a') return 'GotoAction';
+    if (meta && e.shiftKey && key === 'o') return 'GotoFile';
+    // Cmd only (not Ctrl) so Ctrl+E stays "move caret to end of line" while editing.
+    if (e.metaKey && !e.shiftKey && key === 'e') return 'RecentFiles';
+    return null;
+}
+
 // Global keyboard handler
 document.addEventListener('keydown', function(e) {
+    if (e.repeat) return; // ignore key-autorepeat so held keys fire once
+
+    // Double-Shift → Search Everywhere
+    if (e.key === 'Shift' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        var now = Date.now();
+        if (now - lastShiftAt < 350) {
+            lastShiftAt = 0;
+            if (kotlinBridge) kotlinBridge.runIdeAction('SearchEverywhere');
+        } else {
+            lastShiftAt = now;
+        }
+        return;
+    }
+    if (e.key !== 'Shift') lastShiftAt = 0;
+
+    var ideAction = forwardIdeShortcut(e);
+    if (ideAction) {
+        e.preventDefault();
+        if (kotlinBridge) kotlinBridge.runIdeAction(ideAction);
+        return;
+    }
+
     if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         if (kotlinBridge) kotlinBridge.saveNotebook();

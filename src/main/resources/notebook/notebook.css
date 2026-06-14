@@ -263,6 +263,26 @@ body {
 .tok-builtin { color: var(--builtin-color); }
 .tok-known-var { color: var(--known-var-color); }
 
+/* Diagnostics (wavy underlines) */
+.diag {
+    text-decoration-skip-ink: none;
+    text-underline-offset: 2px;
+}
+.diag-error {
+    text-decoration: underline wavy var(--error-text);
+    text-decoration-thickness: 1px;
+}
+.diag-warning {
+    text-decoration: underline wavy #cca700;
+    text-decoration-thickness: 1px;
+}
+
+/* Highlighted usages of the variable being navigated */
+.usage-highlight {
+    background: rgba(120, 160, 255, 0.20);
+    border-radius: 2px;
+}
+
 /* Delete button in cell header */
 .delete-btn {
     background: none;
