@@ -4,6 +4,8 @@ let highlightDebounceTimer = null;
 let diagnosticsByCell = {};
 let usageHighlightName = null;
 let lastShiftAt = 0;
+let cmdLinkName = null;
+let cmdLinkCellId = null;
 
 function initBridge(bridge) {
     kotlinBridge = bridge;
@@ -177,7 +179,7 @@ function diagAt(diags, line, col) {
     return null;
 }
 
-function renderHighlighted(tokens, diags) {
+function renderHighlighted(tokens, diags, linkName) {
     diags = diags || [];
     var html = '';
     var line = 0, col = 0;
@@ -188,6 +190,7 @@ function renderHighlighted(tokens, diags) {
         var classes = [];
         if (tok.type !== 'text') classes.push('tok-' + tok.type);
         if (isIdent && usageHighlightName && val === usageHighlightName) classes.push('usage-highlight');
+        if (isIdent && linkName && val === linkName) classes.push('cmd-link');
         var openTok = classes.length ? ('<span class="' + classes.join(' ') + '">') : '';
         var closeTok = classes.length ? '</span>' : '';
 
@@ -205,7 +208,8 @@ function renderHighlighted(tokens, diags) {
             var d = diags.length ? diagAt(diags, line, col) : null;
             if (d && (!inDiag || d !== curDiag)) {
                 if (inDiag) html += '</span>';
-                html += '<span class="diag diag-' + d.severity + '" title="' + attrEscape(d.message) + '">';
+                html += '<span class="diag diag-' + d.severity + '" data-diag="' +
+                        attrEscape(d.message) + '" data-sev="' + d.severity + '">';
                 inDiag = true; curDiag = d;
             } else if (!d && inDiag) {
                 html += '</span>'; inDiag = false; curDiag = null;
@@ -298,7 +302,8 @@ function highlightBackdrop(cellId) {
     var cellIdx = getCellIndex(cellId);
     var scope = buildVariableScope(cellIdx);
     var tokens = tokenize(text, scope);
-    backdrop.innerHTML = renderHighlighted(tokens, diagnosticsByCell[cellId] || []);
+    var linkName = (cellId === cmdLinkCellId) ? cmdLinkName : null;
+    backdrop.innerHTML = renderHighlighted(tokens, diagnosticsByCell[cellId] || [], linkName);
 }
 
 function highlightAllCells() {
@@ -800,6 +805,91 @@ document.addEventListener('mousedown', function(e) {
     if (!e.target.closest('.cell-gap')) {
         var dropdowns = document.querySelectorAll('.add-cell-dropdown.visible');
         for (var i = 0; i < dropdowns.length; i++) dropdowns[i].classList.remove('visible');
+    }
+});
+
+// ── Diagnostic tooltip (IDE-style overlay) ──
+
+function getDiagTooltip() {
+    var t = document.getElementById('diag-tooltip');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'diag-tooltip';
+        document.body.appendChild(t);
+    }
+    return t;
+}
+
+function showDiagTooltip(target) {
+    var msg = target.getAttribute('data-diag');
+    if (!msg) return;
+    var sev = target.getAttribute('data-sev') || 'error';
+    var tip = getDiagTooltip();
+    tip.textContent = msg;
+    tip.className = 'visible diag-tip-' + sev;
+    var r = target.getBoundingClientRect();
+    var tw = tip.offsetWidth, th = tip.offsetHeight;
+    var left = r.left;
+    if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+    if (left < 8) left = 8;
+    var top = r.bottom + 6;
+    if (top + th > window.innerHeight - 8) top = r.top - th - 6; // flip above if no room
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+}
+
+function hideDiagTooltip() {
+    var t = document.getElementById('diag-tooltip');
+    if (t) t.className = '';
+}
+
+document.addEventListener('mouseover', function(e) {
+    var d = e.target.closest && e.target.closest('.diag');
+    if (d) showDiagTooltip(d);
+});
+
+document.addEventListener('mouseout', function(e) {
+    var d = e.target.closest && e.target.closest('.diag');
+    if (d) {
+        var to = e.relatedTarget;
+        if (!to || !to.closest || !to.closest('.diag')) hideDiagTooltip();
+    }
+});
+
+// ── Cmd/Ctrl-hover link affordance (underline + pointer cursor) ──
+
+function updateCmdHover(e) {
+    var down = e.metaKey || e.ctrlKey;
+    var name = '', cellId = null;
+    if (down) {
+        var bd = e.target.closest && e.target.closest('.source-backdrop');
+        if (bd) {
+            var cellEl = bd.closest('.cell');
+            var src = bd.closest('.cell-source');
+            if (cellEl && src && !src.classList.contains('editing')) {
+                var w = wordAtBackdropPoint(bd, e);
+                if (w) { name = w; cellId = cellEl.dataset.cellId; }
+            }
+        }
+    }
+    if (name !== (cmdLinkName || '') || cellId !== cmdLinkCellId) {
+        var prevCell = cmdLinkCellId;
+        cmdLinkName = name || null;
+        cmdLinkCellId = cellId;
+        if (prevCell && prevCell !== cellId) highlightBackdrop(prevCell);
+        if (cellId) highlightBackdrop(cellId);
+        else if (prevCell) highlightBackdrop(prevCell);
+    }
+}
+
+document.addEventListener('mousemove', updateCmdHover);
+
+document.addEventListener('keyup', function(e) {
+    if ((e.key === 'Meta' || e.key === 'Control') && cmdLinkCellId) {
+        var c = cmdLinkCellId;
+        cmdLinkName = null;
+        cmdLinkCellId = null;
+        highlightBackdrop(c);
     }
 });
 
