@@ -128,7 +128,7 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
     fun addCellToView(cell: Cell) {
         val type = if (cell.cellType == CellType.CODE) "code" else "markdown"
         val source = if (cell.cellType == CellType.MARKDOWN) {
-            renderMarkdown(cell.source)
+            escapeJs(renderMarkdown(cell.source))
         } else {
             escapeJs(cell.source)
         }
@@ -147,7 +147,7 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
     fun insertCellAfter(afterCellId: String, cell: Cell) {
         val type = if (cell.cellType == CellType.CODE) "code" else "markdown"
         val source = if (cell.cellType == CellType.MARKDOWN) {
-            renderMarkdown(cell.source)
+            escapeJs(renderMarkdown(cell.source))
         } else {
             escapeJs(cell.source)
         }
@@ -278,6 +278,8 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
             .replace("\n", "\\n")
             .replace("\r", "\\r")
             .replace("\t", "\\t")
+            .replace("\u2028", "\\u2028") // line separator: valid in JSON, breaks JS literals
+            .replace("\u2029", "\\u2029") // paragraph separator: same
     }
 
     private fun injectBridge() {
