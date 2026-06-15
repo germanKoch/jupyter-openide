@@ -53,6 +53,24 @@ Or place the extracted JAR into your IDE's `plugins/jupyter-openide/lib/` direct
 
 The distributable ZIP will be placed in `dist/`.
 
+## Contributing
+
+Contributions are welcome — bug reports, feature requests, and pull requests all help.
+
+- **Issues** — open an [issue](../../issues) for bugs or feature ideas. Please include your IDE name & version, OS, Python version, and steps to reproduce.
+- **Pull requests** — fork the repository, create a feature branch off `main`, and open a PR back to `main`:
+
+  ```bash
+  git checkout -b my-feature
+  # …make your changes…
+  ./gradlew buildPlugin   # make sure it builds
+  ```
+
+- **Code style** — Kotlin follows standard conventions (JVM 21). Keep the front-end (`src/main/resources/notebook/notebook.js`) framework-free vanilla JavaScript — no external libraries.
+- **Review & merge** — `main` is a protected branch: all changes land through pull requests, and only the maintainer ([@germanKoch](https://github.com/germanKoch)) merges into `main`. Please don't push to `main` directly.
+
+By contributing, you agree that your contributions will be licensed under the project's [MIT License](LICENSE).
+
 ## License
 
 [MIT](LICENSE) — Copyright (c) 2026 German Kochnev
