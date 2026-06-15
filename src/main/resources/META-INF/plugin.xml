@@ -22,6 +22,8 @@
         </ul>
 
         <p>Requires a Python 3.8+ interpreter with <code>ipykernel</code> (offered automatically on first run).</p>
+
+        <p>Source code on <a href="https://github.com/germanKoch/jupyter-openide">GitHub</a>. Issues and pull requests are welcome &mdash; and if the plugin saves you some time, a &#11088; on the repo helps others find it.</p>
     ]]></description>
 
     <change-notes><![CDATA[
