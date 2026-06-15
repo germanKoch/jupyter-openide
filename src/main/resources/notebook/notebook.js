@@ -9,6 +9,15 @@ let cmdLinkCellId = null;
 let cmdLinkPos = null;
 let diagTipTarget = null;
 let pendingAdvanceCellId = null;
+let searchState = {
+    active: false,
+    replaceMode: false,
+    query: '',
+    matches: [],      // [{ range, cellId, kind, start, length }] in document order
+    index: -1,
+    returnFocus: null,
+    refreshTimer: null
+};
 
 function initBridge(bridge) {
     kotlinBridge = bridge;
@@ -315,6 +324,9 @@ function highlightBackdrop(cellId) {
     var linkName = (cellId === cmdLinkCellId) ? cmdLinkName : null;
     var linkPos = (cellId === cmdLinkCellId) ? cmdLinkPos : null;
     backdrop.innerHTML = renderHighlighted(tokens, diagnosticsByCell[cellId] || [], linkName, linkPos);
+    // A re-render replaces the text nodes our search ranges point at, detaching
+    // them; recompute (debounced) while a search is active.
+    if (searchState.active) scheduleSearchRefresh();
 }
 
 function highlightAllCells() {
@@ -805,6 +817,7 @@ function stopEditMarkdown(id, renderedHtml) {
     var rendered = document.getElementById('md-rendered-' + id);
     if (cell) cell.classList.remove('editing-markdown');
     if (rendered) rendered.innerHTML = renderedHtml;
+    if (searchState.active) scheduleSearchRefresh();
 }
 
 // Click-outside handler for markdown cells
@@ -1004,11 +1017,13 @@ function clearOutputs(id) {
     if (outputEl) outputEl.innerHTML = '';
     var execCount = document.getElementById('exec-count-' + id);
     if (execCount) execCount.textContent = '[*]';
+    if (searchState.active) scheduleSearchRefresh();
 }
 
 function appendOutput(id, outputHtml) {
     var outputEl = document.getElementById('output-' + id);
     if (outputEl) outputEl.innerHTML += outputHtml;
+    if (searchState.active) scheduleSearchRefresh();
 }
 
 function setExecutionCount(id, count) {
@@ -1049,6 +1064,7 @@ function scrollToCell(id) {
 function updateMarkdownRendered(id, html) {
     var rendered = document.getElementById('md-rendered-' + id);
     if (rendered) rendered.innerHTML = html;
+    if (searchState.active) scheduleSearchRefresh();
 }
 
 function setMarkdownSource(id, source) {
@@ -1371,9 +1387,434 @@ function forwardIdeShortcut(e) {
     return null;
 }
 
+// ── In-notebook Find / Replace ──
+//
+// Cmd/Ctrl+F opens a find bar; Cmd/Ctrl+R opens it with a replace row. Matches
+// are highlighted with the CSS Custom Highlight API (CSS.highlights / Highlight /
+// Range) so highlighting never touches the DOM — it can't be wiped by the
+// syntax-highlight innerHTML regeneration, the transparent textarea overlay, or
+// the diagnostic/cmd-link spans. Search covers the visible text of code cells
+// (source), markdown (rendered) and outputs; Replace targets editable code-cell
+// source only (outputs and rendered markdown are derived/read-only).
+
+function ensureFindBar() {
+    var bar = document.getElementById('jp-find-bar');
+    if (bar) return bar;
+
+    bar = document.createElement('div');
+    bar.id = 'jp-find-bar';
+    bar.innerHTML =
+        '<div class="jp-find-row">' +
+            '<input id="jp-find-input" class="jp-find-field" type="text" ' +
+                'placeholder="Find" spellcheck="false" autocomplete="off">' +
+            '<span id="jp-find-count" class="jp-find-count"></span>' +
+            '<button id="jp-find-prev" class="jp-find-btn" title="Previous (Shift+Enter)">&#8593;</button>' +
+            '<button id="jp-find-next" class="jp-find-btn" title="Next (Enter)">&#8595;</button>' +
+            '<button id="jp-find-close" class="jp-find-btn" title="Close (Esc)">&times;</button>' +
+        '</div>' +
+        '<div id="jp-replace-row" class="jp-find-row">' +
+            '<input id="jp-replace-input" class="jp-find-field" type="text" ' +
+                'placeholder="Replace" spellcheck="false" autocomplete="off">' +
+            '<button id="jp-replace-one" class="jp-find-btn jp-find-text-btn" title="Replace current match">Replace</button>' +
+            '<button id="jp-replace-all" class="jp-find-btn jp-find-text-btn" title="Replace all in code cells">All</button>' +
+        '</div>';
+    document.body.appendChild(bar);
+
+    var findInput = bar.querySelector('#jp-find-input');
+    var replaceInput = bar.querySelector('#jp-replace-input');
+
+    // Clicks in the bar must not reach the document mousedown handlers (which would
+    // commit/exit a markdown cell or close cell dropdowns as an "outside" click).
+    bar.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+
+    findInput.addEventListener('input', function() {
+        searchState.query = findInput.value;
+        runQuery();
+    });
+
+    findInput.addEventListener('keydown', function(e) { findBarKeydown(e, false); });
+    replaceInput.addEventListener('keydown', function(e) { findBarKeydown(e, true); });
+
+    bar.querySelector('#jp-find-prev').onclick = function() { goToMatch(-1); findInput.focus(); };
+    bar.querySelector('#jp-find-next').onclick = function() { goToMatch(1); findInput.focus(); };
+    bar.querySelector('#jp-find-close').onclick = function() { closeFind(); };
+    bar.querySelector('#jp-replace-one').onclick = function() { doReplaceCurrent(); };
+    bar.querySelector('#jp-replace-all').onclick = function() { doReplaceAll(); };
+
+    return bar;
+}
+
+// Keystrokes inside the find/replace inputs. We isolate the bar from the global
+// keydown handler (so double-Shift / Shift+Enter run-cell don't fire while typing)
+// but still honour the few IDE shortcuts a user expects everywhere: save and the
+// global navigation actions.
+function findBarKeydown(e, isReplace) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isReplace) {
+            if (e.metaKey || e.ctrlKey) doReplaceAll(); else doReplaceCurrent();
+        } else {
+            goToMatch(e.shiftKey ? -1 : 1);
+        }
+        return;
+    }
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeFind();
+        return;
+    }
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (kotlinBridge) kotlinBridge.saveNotebook();
+        return;
+    }
+    var ideAction = forwardIdeShortcut(e);
+    if (ideAction) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (kotlinBridge) kotlinBridge.runIdeAction(ideAction);
+        return;
+    }
+    // Everything else is normal typing: keep it inside the bar so the global
+    // handler never sees it, but let the input receive the character.
+    e.stopPropagation();
+}
+
+function openFind(replaceMode) {
+    var bar = ensureFindBar();
+    var wasActive = searchState.active;
+    searchState.replaceMode = !!replaceMode;
+    searchState.active = true;
+    bar.classList.add('visible');
+    document.getElementById('jp-replace-row').style.display = replaceMode ? 'flex' : 'none';
+
+    var findInput = document.getElementById('jp-find-input');
+    if (!wasActive) {
+        searchState.returnFocus = document.activeElement;
+        // Seed the query from a single-line selection, like the IDE's Find.
+        var sel = window.getSelection ? window.getSelection().toString() : '';
+        if (sel && sel.indexOf('\n') === -1 && sel.length <= 200) {
+            findInput.value = sel;
+            searchState.query = sel;
+        }
+    }
+    findInput.focus();
+    findInput.select();
+    runQuery();
+}
+
+function closeFind() {
+    if (searchState.refreshTimer) { clearTimeout(searchState.refreshTimer); searchState.refreshTimer = null; }
+    clearSearchHighlights();
+    searchState.active = false;
+    searchState.matches = [];
+    searchState.index = -1;
+    var bar = document.getElementById('jp-find-bar');
+    if (bar) bar.classList.remove('visible');
+    var rf = searchState.returnFocus;
+    searchState.returnFocus = null;
+    if (rf && rf !== document.body && document.contains(rf) && typeof rf.focus === 'function') {
+        try { rf.focus(); } catch (e) {}
+    }
+}
+
+function clearSearchHighlights() {
+    if (typeof CSS === 'undefined' || !CSS.highlights) return;
+    try {
+        CSS.highlights.delete('jp-find');
+        CSS.highlights.delete('jp-find-current');
+    } catch (e) {}
+}
+
+// Visible, searchable roots in document (reading) order, each tagged with how it
+// maps back to a cell. Order matters so match navigation follows the notebook.
+function collectSearchRoots() {
+    var roots = [];
+    var cells = document.querySelectorAll('#notebook-container .cell');
+    for (var i = 0; i < cells.length; i++) {
+        var cell = cells[i];
+        var cellId = cell.dataset.cellId;
+        if (cell.dataset.cellType === 'code') {
+            var bd = cell.querySelector('.source-backdrop');
+            if (bd && bd.offsetParent !== null) roots.push({ el: bd, cellId: cellId, kind: 'code' });
+        } else {
+            var md = cell.querySelector('.markdown-rendered');
+            if (md && md.offsetParent !== null) roots.push({ el: md, cellId: cellId, kind: 'markdown' });
+        }
+        var out = cell.querySelector('.cell-output');
+        if (out && out.offsetParent !== null && out.textContent.length) {
+            roots.push({ el: out, cellId: cellId, kind: 'output' });
+        }
+    }
+    return roots;
+}
+
+function escapeRegExp(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Case-insensitive regex matching the literal query. Returns null for an empty
+// query or if construction fails. Matching runs on the ORIGINAL text (not a
+// lowercased copy): toLowerCase() can change string length (e.g. ß→ss, İ→i̇),
+// which would desync match offsets from the live text nodes.
+function buildQueryRegex(query, flags) {
+    if (!query) return null;
+    try { return new RegExp(escapeRegExp(query), flags); } catch (e) { return null; }
+}
+
+// Build Range objects for every (non-overlapping, case-insensitive) occurrence of
+// `re` inside one root. A match may span several text nodes (token spans), which
+// the Range and Highlight API handle natively.
+function buildRangesForRoot(root, re) {
+    var walker = document.createTreeWalker(root.el, NodeFilter.SHOW_TEXT, null);
+    var segs = [];
+    var full = '';
+    var node;
+    while ((node = walker.nextNode())) {
+        var text = node.nodeValue || '';
+        if (!text.length) continue;
+        segs.push({ node: node, start: full.length, end: full.length + text.length });
+        full += text;
+    }
+    if (!segs.length) return [];
+
+    function locate(offset) {
+        var lo = 0, hi = segs.length - 1;
+        while (lo < hi) {
+            var mid = (lo + hi) >> 1;
+            if (segs[mid].end <= offset) lo = mid + 1; else hi = mid;
+        }
+        return { node: segs[lo].node, offset: offset - segs[lo].start };
+    }
+
+    var out = [];
+    re.lastIndex = 0;
+    var m;
+    while ((m = re.exec(full)) !== null) {
+        var len = m[0].length;
+        if (len === 0) { re.lastIndex++; continue; } // guard (cannot happen for non-empty literal)
+        var pos = m.index;
+        var s = locate(pos);
+        var e = locate(pos + len);
+        var range = document.createRange();
+        try {
+            range.setStart(s.node, s.offset);
+            range.setEnd(e.node, e.offset);
+        } catch (err) {
+            re.lastIndex = pos + len;
+            continue;
+        }
+        out.push({ range: range, cellId: root.cellId, kind: root.kind, start: pos, length: len });
+        re.lastIndex = pos + len; // non-overlapping
+    }
+    return out;
+}
+
+function collectMatches(query) {
+    var re = buildQueryRegex(query, 'gi');
+    if (!re) return [];
+    var roots = collectSearchRoots();
+    var matches = [];
+    for (var i = 0; i < roots.length; i++) {
+        var rm = buildRangesForRoot(roots[i], re);
+        for (var j = 0; j < rm.length; j++) matches.push(rm[j]);
+    }
+    return matches;
+}
+
+function isRangeLive(range) {
+    var n = range && range.startContainer;
+    return !!(n && n.isConnected !== false);
+}
+
+function applySearchHighlights() {
+    if (typeof CSS === 'undefined' || !CSS.highlights || typeof Highlight === 'undefined') return;
+    if (!searchState.matches.length) { clearSearchHighlights(); return; }
+    try {
+        var allH = new Highlight();
+        var added = 0;
+        for (var k = 0; k < searchState.matches.length; k++) {
+            var r = searchState.matches[k].range;
+            if (isRangeLive(r)) { allH.add(r); added++; }
+        }
+        if (added) CSS.highlights.set('jp-find', allH); else CSS.highlights.delete('jp-find');
+        var cm = (searchState.index >= 0 && searchState.index < searchState.matches.length)
+            ? searchState.matches[searchState.index].range : null;
+        if (cm && isRangeLive(cm)) {
+            var cur = new Highlight();
+            cur.add(cm);
+            cur.priority = 1; // win over the all-matches highlight where they overlap
+            CSS.highlights.set('jp-find-current', cur);
+        } else {
+            CSS.highlights.delete('jp-find-current');
+        }
+    } catch (e) {}
+}
+
+function updateFindCount() {
+    var el = document.getElementById('jp-find-count');
+    if (!el) return;
+    var n = searchState.matches.length;
+    if (!searchState.query) { el.textContent = ''; el.classList.remove('jp-find-none'); return; }
+    el.textContent = n ? (searchState.index + 1) + '/' + n : 'No results';
+    el.classList.toggle('jp-find-none', n === 0);
+}
+
+// Recompute matches for the current query and re-apply highlights. `opts.reset`
+// jumps the cursor to the first match (fresh query); otherwise the previous index
+// is clamped (after edits/re-renders). `opts.scroll` reveals the current match.
+function applyMatches(opts) {
+    var prevIndex = searchState.index;
+    searchState.matches = collectMatches(searchState.query);
+    var n = searchState.matches.length;
+    if (n === 0) {
+        searchState.index = -1;
+    } else if (opts.reset || prevIndex < 0) {
+        searchState.index = 0;
+    } else {
+        searchState.index = Math.min(prevIndex, n - 1);
+    }
+    applySearchHighlights();
+    updateFindCount();
+    if (opts.scroll && n > 0) scrollToCurrentMatch();
+}
+
+// A fresh query (typing / opening the bar): reset to the first match and scroll.
+function runQuery() {
+    applyMatches({ reset: true, scroll: true });
+}
+
+function scheduleSearchRefresh() {
+    if (searchState.refreshTimer) clearTimeout(searchState.refreshTimer);
+    searchState.refreshTimer = setTimeout(function() {
+        searchState.refreshTimer = null;
+        // Re-renders that preserve text don't move the cursor and must not scroll.
+        if (searchState.active && searchState.query) applyMatches({ reset: false, scroll: false });
+    }, 80);
+}
+
+// Run a pending debounced refresh now, so navigation/replace always operate on
+// ranges rebuilt from the current DOM rather than detached ones.
+function flushSearchRefresh() {
+    if (searchState.refreshTimer) {
+        clearTimeout(searchState.refreshTimer);
+        searchState.refreshTimer = null;
+        if (searchState.active && searchState.query) applyMatches({ reset: false, scroll: false });
+    }
+}
+
+function goToMatch(dir) {
+    flushSearchRefresh();
+    var n = searchState.matches.length;
+    if (!n) return;
+    searchState.index = (searchState.index + dir + n) % n;
+    applySearchHighlights();
+    updateFindCount();
+    scrollToCurrentMatch();
+}
+
+function scrollToCurrentMatch() {
+    if (searchState.index < 0 || searchState.index >= searchState.matches.length) return;
+    var range = searchState.matches[searchState.index].range;
+    if (!isRangeLive(range)) return;
+    var rect;
+    try { rect = range.getBoundingClientRect(); } catch (e) { return; }
+    if (!rect || (rect.width === 0 && rect.height === 0)) return;
+    // Keep the match clear of the fixed find bar at the top of the viewport.
+    var bar = document.getElementById('jp-find-bar');
+    var topMargin = (bar && bar.classList.contains('visible')) ? bar.offsetHeight + 24 : 24;
+    if (rect.top < topMargin || rect.bottom > window.innerHeight - 24) {
+        window.scrollBy({ top: rect.top - window.innerHeight * 0.4, behavior: 'smooth' });
+    }
+}
+
+function replaceInputValue() {
+    var el = document.getElementById('jp-replace-input');
+    return el ? el.value : '';
+}
+
+function doReplaceCurrent() {
+    flushSearchRefresh(); // operate on ranges/offsets rebuilt from the current DOM
+    if (!searchState.matches.length) return;
+    var m = searchState.matches[searchState.index];
+    // Outputs and rendered markdown are derived/read-only; skip to the next match.
+    if (m.kind !== 'code') { goToMatch(1); return; }
+    var src = getCellText(m.cellId);
+    // Verify the offset still maps to the query before mutating the source; if the
+    // cell changed out from under us, recompute instead of corrupting the text.
+    var anchored = new RegExp('^(?:' + escapeRegExp(searchState.query) + ')$', 'i');
+    if (m.start + m.length > src.length || !anchored.test(src.substr(m.start, m.length))) {
+        applyMatches({ reset: false, scroll: true });
+        return;
+    }
+    var newSrc = src.slice(0, m.start) + replaceInputValue() + src.slice(m.start + m.length);
+    applyCellSourceUpdate(m.cellId, newSrc);
+    // The cell re-rendered; recompute and keep the cursor on the following match.
+    applyMatches({ reset: false, scroll: true });
+}
+
+function doReplaceAll() {
+    if (!searchState.query) return;
+    var replacement = replaceInputValue();
+    var total = 0;
+    var cells = document.querySelectorAll('#notebook-container .cell');
+    for (var i = 0; i < cells.length; i++) {
+        if (cells[i].dataset.cellType !== 'code') continue;
+        var cellId = cells[i].dataset.cellId;
+        var src = getCellText(cellId);
+        var res = replaceAllCI(src, searchState.query, replacement);
+        if (res.count > 0) {
+            total += res.count;
+            applyCellSourceUpdate(cellId, res.text);
+        }
+    }
+    applyMatches({ reset: false, scroll: false });
+    var el = document.getElementById('jp-find-count');
+    if (el && total > 0) { el.textContent = 'Replaced ' + total; el.classList.remove('jp-find-none'); }
+}
+
+// Case-insensitive replace-all over the original (un-lowercased) source. String
+// replace with a function replacer treats `replacement` literally (no $-patterns)
+// and never rescans inserted text, so replacing "a" with "aa" terminates.
+function replaceAllCI(src, query, replacement) {
+    var re = buildQueryRegex(query, 'gi');
+    if (!re) return { text: src, count: 0 };
+    var count = 0;
+    var out = src.replace(re, function() { count++; return replacement; });
+    return { text: out, count: count };
+}
+
+function applyCellSourceUpdate(cellId, newSrc) {
+    var cell = document.getElementById('cell-' + cellId);
+    if (!cell) return;
+    var ta = cell.querySelector('.source-input');
+    if (ta) ta.value = newSrc;
+    if (diagnosticsByCell[cellId]) delete diagnosticsByCell[cellId];
+    if (kotlinBridge) kotlinBridge.cellSourceChanged(cellId, newSrc);
+    highlightBackdrop(cellId);
+    syncTextareaHeight(cellId);
+}
+
 // Global keyboard handler
 document.addEventListener('keydown', function(e) {
     if (e.repeat) return; // ignore key-autorepeat so held keys fire once
+
+    // Cmd/Ctrl+F → find; Cmd/Ctrl+R → find & replace. Always preventDefault:
+    // CEF's default Cmd+R would reload the loadHTML page and blank the notebook.
+    var findMod = (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey;
+    if (findMod && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        openFind(false);
+        return;
+    }
+    if (findMod && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault();
+        openFind(true);
+        return;
+    }
 
     // Double-Shift → Search Everywhere
     if (e.key === 'Shift' && !e.metaKey && !e.ctrlKey && !e.altKey) {

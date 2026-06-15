@@ -185,6 +185,17 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
         executeJs("onCellExecuted('${escapeJs(cellId)}', $success)")
     }
 
+    /**
+     * Open the in-notebook find (or find+replace) bar. Used as a fallback for the
+     * JS keydown handler: if the IDE consumes Cmd+F/Cmd+R before the JCEF page sees
+     * it, the bound action calls this instead. Focusing the browser first ensures
+     * keystrokes land in the find field.
+     */
+    fun openFind(replace: Boolean) {
+        browser.component.requestFocusInWindow()
+        executeJs("openFind($replace)")
+    }
+
     fun makeCellEditable(cellId: String) {
         executeJs("makeEditable('${escapeJs(cellId)}')")
     }

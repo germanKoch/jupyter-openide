@@ -317,6 +317,89 @@ body {
 #diag-tooltip.visible { display: block; }
 #diag-tooltip.diag-tip-warning { border-left-color: #cca700; }
 
+/* ── Find / Replace bar ── */
+#jp-find-bar {
+    position: fixed;
+    top: 8px;
+    right: 16px;
+    z-index: 1100;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+    background: #2b2b2b;
+    border: 1px solid #3c3f41;
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+
+#jp-find-bar.visible { display: flex; }
+
+.jp-find-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.jp-find-field {
+    background: #1e1e1e;
+    color: var(--text-color);
+    border: 1px solid #3c3f41;
+    border-radius: 3px;
+    padding: 4px 7px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 12px;
+    width: 200px;
+    outline: none;
+}
+
+.jp-find-field:focus {
+    border-color: var(--cell-active-border);
+}
+
+.jp-find-count {
+    min-width: 56px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--execution-count-color);
+    white-space: nowrap;
+}
+
+.jp-find-count.jp-find-none { color: var(--error-text); }
+
+.jp-find-btn {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 7px;
+    border-radius: 3px;
+    opacity: 0.75;
+    transition: background 0.15s, opacity 0.15s;
+}
+
+.jp-find-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.jp-find-text-btn {
+    font-size: 11px;
+    border: 1px solid #3c3f41;
+}
+
+/* Custom Highlight API ranges for search matches (no DOM mutation). */
+::highlight(jp-find) {
+    background-color: rgba(255, 214, 0, 0.32);
+}
+
+::highlight(jp-find-current) {
+    background-color: #ff9632;
+    color: #1e1e1e;
+}
+
 /* Delete button in cell header */
 .delete-btn {
     background: none;

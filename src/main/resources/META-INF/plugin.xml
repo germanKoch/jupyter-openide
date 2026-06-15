@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.openide.jupyter</id>
     <name>Jupyter Notebook</name>
-    <version>0.2.0</version>
+    <version>0.2.1</version>
     <vendor>German Kochnev</vendor>
     <description><![CDATA[
         <p>Open, edit, and run Jupyter notebooks (<code>.ipynb</code>) directly inside your IDE.
@@ -15,6 +15,7 @@
             <li><b>Inline diagnostics</b> &mdash; syntax errors, undefined names (not defined in this or an earlier cell) and unresolved imports are underlined, with an IDE-style tooltip describing the problem. Uses <code>pyflakes</code> when available and falls back to a built-in analyzer otherwise.</li>
             <li><b>Go to definition</b> &mdash; <code>Cmd</code>/<code>Ctrl</code>+Click or <code>Cmd</code>/<code>Ctrl</code>+B on a variable jumps to where it was defined and highlights its other uses; hovering with the modifier shows a clickable link.</li>
             <li><b>Editor shortcuts inside cells</b> &mdash; comment line (<code>Cmd</code>+/), duplicate line (<code>Cmd</code>+D), delete line (<code>Cmd</code>+&#9003;), move line (<code>Opt</code>+<code>Shift</code>+&uarr;/&darr;).</li>
+            <li><b>Find &amp; Replace</b> &mdash; <code>Cmd</code>/<code>Ctrl</code>+F searches across cell sources, rendered Markdown and outputs with highlighted matches and a match counter; <code>Cmd</code>/<code>Ctrl</code>+R adds replace and replace-all for code cells.</li>
             <li><b>Run &amp; advance</b> &mdash; <code>Shift</code>+<code>Enter</code> runs a cell and, once it finishes successfully, moves focus to the next cell, creating a new one if it was the last.</li>
             <li><b>IDE-global shortcuts pass through</b> &mdash; Search Everywhere, Find in Files, Go to File and Recent Files keep working while the notebook is focused.</li>
             <li><b>Kernel management</b> &mdash; automatic interpreter detection, on-demand kernel start, restart, interrupt, and auto-install of <code>ipykernel</code>; the working directory is the notebook's folder.</li>
@@ -27,6 +28,13 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <h3>0.2.1</h3>
+        <ul>
+            <li><b>Find &amp; Replace:</b> <code>Cmd</code>/<code>Ctrl</code>+F opens an in-notebook find bar that searches code, rendered Markdown and outputs, highlights every match and shows a match count; Enter / Shift+Enter jump between matches.</li>
+            <li><b>Replace:</b> <code>Cmd</code>/<code>Ctrl</code>+R adds a replace row with Replace and Replace All for code cells.</li>
+            <li><b>Fix:</b> <code>Cmd</code>/<code>Ctrl</code>+R no longer reloads and blanks the notebook view; correct match offsets for non-ASCII text; <code>Cmd</code>+S and global navigation shortcuts keep working while the find bar is focused.</li>
+        </ul>
+
         <h3>0.2.0</h3>
         <ul>
             <li><b>Inline diagnostics:</b> syntax errors, undefined variables and unresolved imports are now underlined, with hover tooltips explaining each problem.</li>
@@ -104,5 +112,20 @@
                     text="Delete Cell"
                     description="Delete the selected cell"/>
         </group>
+
+        <action id="jupyter.findInNotebook"
+                class="com.openide.jupyter.actions.FindInNotebookAction"
+                text="Find in Notebook"
+                description="Search within the current notebook">
+            <keyboard-shortcut keymap="$default" first-keystroke="control F"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta F"/>
+        </action>
+        <action id="jupyter.replaceInNotebook"
+                class="com.openide.jupyter.actions.ReplaceInNotebookAction"
+                text="Replace in Notebook"
+                description="Find and replace within the current notebook">
+            <keyboard-shortcut keymap="$default" first-keystroke="control R"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta R"/>
+        </action>
     </actions>
 </idea-plugin>
