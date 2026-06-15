@@ -3,7 +3,45 @@
     <name>Jupyter Notebook</name>
     <version>0.2.0</version>
     <vendor>German Kochnev</vendor>
-    <description>Jupyter Notebook support for OpenIDE — open, view, edit, and execute .ipynb files using the project's Python environment.</description>
+    <description><![CDATA[
+        <p>Open, edit, and run Jupyter notebooks (<code>.ipynb</code>) directly inside your IDE.
+        The plugin launches an IPython kernel on your project's own Python interpreter and talks to it
+        over ZeroMQ &mdash; <b>no external Jupyter server required</b>.</p>
+
+        <h3>Features</h3>
+        <ul>
+            <li><b>Native notebook editor</b> &mdash; code and Markdown cells with add / delete / reorder, rendered output (text, HTML, images, error tracebacks).</li>
+            <li><b>Python syntax highlighting</b> with cross-cell awareness &mdash; variables, functions and imports defined in earlier cells are highlighted in later ones.</li>
+            <li><b>Inline diagnostics</b> &mdash; syntax errors, undefined names (not defined in this or an earlier cell) and unresolved imports are underlined, with an IDE-style tooltip describing the problem. Uses <code>pyflakes</code> when available and falls back to a built-in analyzer otherwise.</li>
+            <li><b>Go to definition</b> &mdash; <code>Cmd</code>/<code>Ctrl</code>+Click or <code>Cmd</code>/<code>Ctrl</code>+B on a variable jumps to where it was defined and highlights its other uses; hovering with the modifier shows a clickable link.</li>
+            <li><b>Editor shortcuts inside cells</b> &mdash; comment line (<code>Cmd</code>+/), duplicate line (<code>Cmd</code>+D), delete line (<code>Cmd</code>+&#9003;), move line (<code>Opt</code>+<code>Shift</code>+&uarr;/&darr;).</li>
+            <li><b>Run &amp; advance</b> &mdash; <code>Shift</code>+<code>Enter</code> runs a cell and, once it finishes successfully, moves focus to the next cell, creating a new one if it was the last.</li>
+            <li><b>IDE-global shortcuts pass through</b> &mdash; Search Everywhere, Find in Files, Go to File and Recent Files keep working while the notebook is focused.</li>
+            <li><b>Kernel management</b> &mdash; automatic interpreter detection, on-demand kernel start, restart, interrupt, and auto-install of <code>ipykernel</code>; the working directory is the notebook's folder.</li>
+            <li><b>Standard format</b> &mdash; reads and writes nbformat v4, fully compatible with JupyterLab and VS Code. Saves with <code>Cmd</code>+S.</li>
+        </ul>
+
+        <p>Requires a Python 3.8+ interpreter with <code>ipykernel</code> (offered automatically on first run).</p>
+    ]]></description>
+
+    <change-notes><![CDATA[
+        <h3>0.2.0</h3>
+        <ul>
+            <li><b>Inline diagnostics:</b> syntax errors, undefined variables and unresolved imports are now underlined, with hover tooltips explaining each problem.</li>
+            <li><b>Go to definition &amp; usages:</b> Cmd/Ctrl+Click or Cmd/Ctrl+B on a variable navigates to its definition and highlights its other uses; modifier-hover shows a link affordance.</li>
+            <li><b>In-cell editor shortcuts:</b> comment (Cmd+/), duplicate (Cmd+D), delete and move line.</li>
+            <li><b>IDE-global shortcuts</b> (Search Everywhere, Find in Files, Go to File, Recent Files) now work while the notebook is focused.</li>
+            <li><b>Shift+Enter</b> runs a cell and advances to the next on success, creating a new cell after the last one.</li>
+            <li><b>File-type icon</b> for <code>.ipynb</code> files in the project view.</li>
+            <li><b>Fixes:</b> Markdown cells containing line breaks or special characters now render correctly; more reliable Shift+Enter handling; correct caret/column behavior with non-ASCII text.</li>
+        </ul>
+
+        <h3>0.1.0</h3>
+        <ul>
+            <li>Initial release: open, view, edit and execute <code>.ipynb</code> notebooks using the project's Python environment.</li>
+            <li>Code and Markdown cells, Python syntax highlighting, rich output rendering, and full kernel lifecycle management over ZeroMQ.</li>
+        </ul>
+    ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
 
