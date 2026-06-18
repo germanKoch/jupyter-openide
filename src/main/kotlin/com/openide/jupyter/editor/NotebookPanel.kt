@@ -2,6 +2,7 @@ package com.openide.jupyter.editor
 
 import com.google.gson.Gson
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.ui.jcef.JBCefJSQuery
@@ -25,6 +26,15 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
 
     private val gson = Gson()
 
+    companion object {
+        private val LOG = Logger.getInstance(NotebookPanel::class.java)
+
+        // Bundled UI resources, cached after the first successful read so subsequent
+        // editor instances in this session don't re-read (and can't re-fail) on the jar.
+        @Volatile private var cachedCss: String? = null
+        @Volatile private var cachedJs: String? = null
+    }
+
     var selectedCellId: String? = null
         private set
 
@@ -38,6 +48,10 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
 
     private var pendingNotebook: Notebook? = null
     private var loaded = false
+
+    // False when the bundled UI resources (css/js) could not be read from the plugin
+    // jar, so the page is showing the recoverable error screen instead of the editor.
+    private var resourcesOk = true
 
     init {
         Disposer.register(parentDisposable, this)
@@ -114,6 +128,7 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
     val component: JComponent get() = browser.component
 
     fun renderNotebook(notebook: Notebook) {
+        if (!resourcesOk) return
         if (!loaded) {
             pendingNotebook = notebook
             return
@@ -315,8 +330,17 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
     }
 
     private fun buildInlineHtml(): String {
-        val css = loadResource("notebook/notebook.css")
-        val js = loadResource("notebook/notebook.js")
+        // Cache the bundled resources once read successfully: later notebooks opened in
+        // the same session reuse them and never touch the jar again, so a transient
+        // jar-read glitch can affect at most the first open in a session.
+        val css = cachedCss ?: loadResource("notebook/notebook.css").also { if (it.isNotBlank()) cachedCss = it }
+        val js = cachedJs ?: loadResource("notebook/notebook.js").also { if (it.isNotBlank()) cachedJs = it }
+        if (js.isBlank()) {
+            // Resources couldn't be read from the plugin jar. Show a recoverable message
+            // instead of letting the editor construction fail with a blank/dead tab.
+            resourcesOk = false
+            return buildResourceErrorHtml()
+        }
         return """
             <!DOCTYPE html>
             <html lang="en">
@@ -333,9 +357,46 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
         """.trimIndent()
     }
 
+    private fun buildResourceErrorHtml(): String {
+        return """
+            <!DOCTYPE html>
+            <html lang="en">
+            <head><meta charset="UTF-8">
+            <style>
+              body{font-family:-apple-system,'Segoe UI',sans-serif;background:#2b2b2b;color:#bbbbbb;
+                   display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}
+              .box{max-width:540px;padding:24px 28px;text-align:center;line-height:1.55;}
+              h2{color:#e8e8e8;font-size:16px;margin:0 0 12px;}
+              code{background:#3c3f41;padding:1px 6px;border-radius:4px;color:#d7ba7d;}
+            </style></head>
+            <body><div class="box">
+              <h2>Couldn't load the notebook editor</h2>
+              <p>The plugin's interface resources could not be read from its archive. This is
+              almost always a temporary IDE issue &mdash; not a problem with your notebook file.</p>
+              <p>Please restart the IDE (<code>File &rarr; Restart IDE</code>) and reopen the notebook.</p>
+            </div></body></html>
+        """.trimIndent()
+    }
+
     private fun loadResource(path: String): String {
-        return javaClass.classLoader.getResourceAsStream(path)
-            ?.bufferedReader()?.readText() ?: ""
+        var lastError: Throwable? = null
+        repeat(3) {
+            try {
+                javaClass.classLoader.getResourceAsStream(path)?.use { stream ->
+                    return stream.bufferedReader().readText()
+                }
+                // Stream was null: the resource is genuinely absent, so a retry can't help.
+                return ""
+            } catch (t: Throwable) {
+                // Transient IDE-level jar decompression failures (a memory-mapped
+                // ZipException such as "invalid code lengths set") can make one read fail
+                // while a retry succeeds. Never let it escape and kill the editor.
+                lastError = t
+            }
+        }
+        LOG.warn("Failed to read bundled resource '$path' from the plugin jar after retries; " +
+            "the IDE may need a restart.", lastError)
+        return ""
     }
 
     private fun executeJs(js: String) {

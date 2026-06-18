@@ -36,18 +36,24 @@ class NotebookAnalyzer(
 
     private fun ensureScript(): File? {
         scriptFile?.let { if (it.exists()) return it }
-        return try {
-            val text = javaClass.classLoader
-                .getResourceAsStream("notebook/analyzer.py")
-                ?.bufferedReader()?.readText() ?: return null
-            val tmp = File.createTempFile("jupyter_analyzer_", ".py")
-            tmp.deleteOnExit()
-            tmp.writeText(text)
-            scriptFile = tmp
-            tmp
-        } catch (_: Exception) {
-            null
+        // Retry the read: a transient IDE-level jar decompression failure (a memory-mapped
+        // ZipException) can make one read fail while a retry succeeds. Failure here only
+        // disables analysis, never the editor, so we degrade silently.
+        repeat(3) {
+            try {
+                val text = javaClass.classLoader
+                    .getResourceAsStream("notebook/analyzer.py")
+                    ?.bufferedReader()?.use { it.readText() } ?: return null
+                val tmp = File.createTempFile("jupyter_analyzer_", ".py")
+                tmp.deleteOnExit()
+                tmp.writeText(text)
+                scriptFile = tmp
+                return tmp
+            } catch (_: Throwable) {
+                // try again
+            }
         }
+        return null
     }
 
     /** Analyze [cells] (id -> source). [onResult] runs on the analyzer thread. */
