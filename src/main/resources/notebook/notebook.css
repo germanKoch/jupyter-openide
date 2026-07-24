@@ -1,4 +1,5 @@
-:root {
+:root,
+:root[data-theme="dark"] {
     --bg-color: #1e1e1e;
     --cell-bg: #2d2d2d;
     --cell-border: #404040;
@@ -20,6 +21,64 @@
     --builtin-color: #dcdcaa;
     --known-var-color: #9cdcfe;
     --add-btn-color: #007acc;
+    --add-btn-hover: #1a8ad4;
+    --link-color: #4fc1ff;
+    --badge-code-bg: #264f78;
+    --badge-code-text: #9cdcfe;
+    --badge-markdown-bg: #4d3a00;
+    --badge-markdown-text: #dcdcaa;
+    --tooltip-bg: #2b2b2b;
+    --tooltip-border: #3c3f41;
+    --tooltip-shadow: rgba(0, 0, 0, 0.5);
+    --find-bar-bg: #2b2b2b;
+    --find-bar-border: #3c3f41;
+    --find-bar-shadow: rgba(0, 0, 0, 0.55);
+    --find-field-bg: #1e1e1e;
+    --output-error-border: #5c2020;
+    --markdown-source-border: #b5854b;
+    --dropdown-shadow: rgba(0, 0, 0, 0.4);
+    --hover-tint: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="light"] {
+    --bg-color: #ffffff;
+    --cell-bg: #f2f2f2;
+    --cell-border: #d1d1d1;
+    --cell-active-border: #0b6fb8;
+    --text-color: #1f1f1f;
+    --code-bg: #ffffff;
+    --output-bg: #f7f7f7;
+    --error-bg: #fdecea;
+    --error-text: #c62828;
+    --markdown-text: #2b2b2b;
+    --execution-count-color: #6e6e6e;
+    --separator-color: #e0e0e0;
+    --keyword-color: #0000ff;
+    --string-color: #a31515;
+    --number-color: #098658;
+    --comment-color: #008000;
+    --executing-color: #b58900;
+    --decorator-color: #af8a00;
+    --builtin-color: #795e26;
+    --known-var-color: #001080;
+    --add-btn-color: #0b6fb8;
+    --add-btn-hover: #0958a5;
+    --link-color: #0b6fb8;
+    --badge-code-bg: #d9e8fb;
+    --badge-code-text: #1a56a8;
+    --badge-markdown-bg: #fbeecb;
+    --badge-markdown-text: #8a6500;
+    --tooltip-bg: #ffffff;
+    --tooltip-border: #d1d1d1;
+    --tooltip-shadow: rgba(0, 0, 0, 0.18);
+    --find-bar-bg: #ffffff;
+    --find-bar-border: #d1d1d1;
+    --find-bar-shadow: rgba(0, 0, 0, 0.2);
+    --find-field-bg: #f2f2f2;
+    --output-error-border: #e0b4b4;
+    --markdown-source-border: #b5854b;
+    --dropdown-shadow: rgba(0, 0, 0, 0.15);
+    --hover-tint: rgba(0, 0, 0, 0.06);
 }
 
 * {
@@ -96,13 +155,13 @@ body {
 }
 
 .cell-type-badge.code {
-    background: #264f78;
-    color: #9cdcfe;
+    background: var(--badge-code-bg);
+    color: var(--badge-code-text);
 }
 
 .cell-type-badge.markdown {
-    background: #4d3a00;
-    color: #dcdcaa;
+    background: var(--badge-markdown-bg);
+    color: var(--badge-markdown-text);
 }
 
 .execution-count {
@@ -203,7 +262,7 @@ body {
     background: var(--error-bg);
     color: var(--error-text);
     padding: 8px 12px;
-    border-top: 1px solid #5c2020;
+    border-top: 1px solid var(--output-error-border);
 }
 
 .output-html { color: var(--text-color); }
@@ -224,7 +283,7 @@ body {
 .markdown-rendered h3 { font-size: 1.25em; margin: 0.5em 0 0.3em; }
 .markdown-rendered h4 { font-size: 1.1em; margin: 0.5em 0 0.3em; }
 .markdown-rendered p { margin: 0.5em 0; }
-.markdown-rendered a { color: #4fc1ff; text-decoration: none; }
+.markdown-rendered a { color: var(--link-color); text-decoration: none; }
 .markdown-rendered a:hover { text-decoration: underline; }
 .markdown-rendered code { background: var(--code-bg); padding: 2px 5px; border-radius: 3px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.9em; }
 .markdown-rendered pre { background: var(--code-bg); padding: 12px; border-radius: 4px; overflow-x: auto; margin: 0.5em 0; }
@@ -243,7 +302,7 @@ body {
     line-height: 1.6;
     white-space: pre-wrap;
     outline: none;
-    border-left: 3px solid #b5854b;
+    border-left: 3px solid var(--markdown-source-border);
 }
 
 .cell.editing-markdown .markdown-rendered { display: none; }
@@ -290,7 +349,7 @@ body {
     /* 4px (vs diagnostics' 2px) so the link underline stacks below, rather than
        overlapping, a wavy error/warning underline on the same identifier. */
     text-underline-offset: 4px;
-    text-decoration-color: #4fc1ff;
+    text-decoration-color: var(--link-color);
 }
 
 /* IDE-style diagnostic tooltip overlay */
@@ -300,15 +359,15 @@ body {
     display: none;
     max-width: 480px;
     padding: 6px 10px;
-    background: #2b2b2b;
-    color: #d4d4d4;
-    border: 1px solid #3c3f41;
+    background: var(--tooltip-bg);
+    color: var(--text-color);
+    border: 1px solid var(--tooltip-border);
     border-left: 3px solid var(--error-text);
     border-radius: 4px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 12px;
     line-height: 1.45;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 4px 14px var(--tooltip-shadow);
     pointer-events: none;
     white-space: pre-wrap;
     word-break: break-word;
@@ -327,10 +386,10 @@ body {
     flex-direction: column;
     gap: 4px;
     padding: 6px;
-    background: #2b2b2b;
-    border: 1px solid #3c3f41;
+    background: var(--find-bar-bg);
+    border: 1px solid var(--find-bar-border);
     border-radius: 6px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+    box-shadow: 0 6px 18px var(--find-bar-shadow);
 }
 
 #jp-find-bar.visible { display: flex; }
@@ -342,9 +401,9 @@ body {
 }
 
 .jp-find-field {
-    background: #1e1e1e;
+    background: var(--find-field-bg);
     color: var(--text-color);
-    border: 1px solid #3c3f41;
+    border: 1px solid var(--find-bar-border);
     border-radius: 3px;
     padding: 4px 7px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -382,12 +441,12 @@ body {
 
 .jp-find-btn:hover {
     opacity: 1;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--hover-tint);
 }
 
 .jp-find-text-btn {
     font-size: 11px;
-    border: 1px solid #3c3f41;
+    border: 1px solid var(--find-bar-border);
 }
 
 /* Custom Highlight API ranges for search matches (no DOM mutation). */
@@ -451,7 +510,7 @@ body {
 }
 
 .cell-gap .add-cell-btn:hover {
-    background: #1a8ad4;
+    background: var(--add-btn-hover);
 }
 
 .cell-gap::before {
@@ -479,7 +538,7 @@ body {
     border: 1px solid var(--cell-border);
     border-radius: 4px;
     z-index: 20;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 12px var(--dropdown-shadow);
     overflow: hidden;
 }
 

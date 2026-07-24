@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.openide.jupyter</id>
     <name>Jupyter Notebook</name>
-    <version>0.2.2</version>
+    <version>0.2.3</version>
     <vendor>German Kochnev</vendor>
     <description><![CDATA[
         <p>Open, edit, and run Jupyter notebooks (<code>.ipynb</code>) directly inside your IDE.
@@ -28,6 +28,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        <h3>0.2.3</h3>
+        <ul>
+            <li><b>Theme-aware editor:</b> the notebook view now follows the IDE's Light/Darcula theme instead of always rendering dark &mdash; colors (cell backgrounds, syntax highlighting, diagnostics tooltip, find bar, etc.) switch automatically, including live updates if you change the IDE theme while a notebook is open.</li>
+        </ul>
+
         <h3>0.2.2</h3>
         <ul>
             <li><b>Fix:</b> a notebook could fail to open with a blank/dead tab if the IDE hit a transient error reading the plugin's bundled resources (a memory-mapped <code>ZipException</code>). The editor now retries the read, caches resources once loaded, and &mdash; if it still can't read them &mdash; shows a clear "restart the IDE" message instead of failing silently. Inline analysis recovers from the same glitch instead of switching off.</li>

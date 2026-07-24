@@ -1,7 +1,10 @@
 package com.openide.jupyter.editor
 
 import com.google.gson.Gson
+import com.intellij.ide.ui.LafManager
+import com.intellij.ide.ui.LafManagerListener
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.util.Disposer
 import com.intellij.ui.jcef.JBCefBrowser
@@ -121,8 +124,19 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
             }
         }, browser.cefBrowser)
 
-        val html = buildInlineHtml()
+        ApplicationManager.getApplication().messageBus.connect(this).subscribe(
+            LafManagerListener.TOPIC,
+            LafManagerListener { executeJs("setTheme(${isDarkTheme()})") }
+        )
+
+        val html = buildInlineHtml(isDarkTheme())
         browser.loadHTML(html)
+    }
+
+    // Falls back to dark (the plugin's original, only theme) if the LaF API can't
+    // report a value, so behavior is unchanged for anyone on an odd/custom theme.
+    private fun isDarkTheme(): Boolean {
+        return LafManager.getInstance().currentUIThemeLookAndFeel?.isDark ?: true
     }
 
     val component: JComponent get() = browser.component
@@ -329,7 +343,7 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
         """.trimIndent())
     }
 
-    private fun buildInlineHtml(): String {
+    private fun buildInlineHtml(isDark: Boolean): String {
         // Cache the bundled resources once read successfully: later notebooks opened in
         // the same session reuse them and never touch the jar again, so a transient
         // jar-read glitch can affect at most the first open in a session.
@@ -341,9 +355,10 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
             resourcesOk = false
             return buildResourceErrorHtml()
         }
+        val theme = if (isDark) "dark" else "light"
         return """
             <!DOCTYPE html>
-            <html lang="en">
+            <html lang="en" data-theme="$theme">
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">

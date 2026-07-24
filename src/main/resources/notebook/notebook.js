@@ -23,6 +23,10 @@ function initBridge(bridge) {
     kotlinBridge = bridge;
 }
 
+function setTheme(isDark) {
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+}
+
 // ── Syntax Tokenizer ──
 
 const PYTHON_KEYWORDS = new Set([
