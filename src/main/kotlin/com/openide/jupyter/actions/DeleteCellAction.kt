@@ -15,8 +15,8 @@ class DeleteCellAction : AnAction() {
         val idx = notebook.cells.indexOfFirst { it.id == selectedId }
         if (idx >= 0) {
             notebook.cells.removeAt(idx)
-            notebook.isDirty = true
             panel.removeCellFromView(selectedId)
+            editor.notifyNotebookStructureChanged()
         }
     }
 

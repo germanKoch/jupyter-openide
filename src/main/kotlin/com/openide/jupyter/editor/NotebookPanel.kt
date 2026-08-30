@@ -1,6 +1,7 @@
 package com.openide.jupyter.editor
 
 import com.google.gson.Gson
+import com.google.gson.JsonElement
 import com.intellij.ide.ui.LafManager
 import com.intellij.ide.ui.LafManagerListener
 import com.intellij.openapi.Disposable
@@ -15,6 +16,18 @@ import org.cef.browser.CefBrowser
 import org.cef.handler.CefLoadHandlerAdapter
 import java.net.URLEncoder
 import javax.swing.JComponent
+import javax.swing.SwingUtilities
+
+/** Serializes browser bridge mutations with all other Swing/editor state. */
+internal fun dispatchNotebookBridgeEvent(action: () -> Unit) {
+    SwingUtilities.invokeLater(action)
+}
+
+data class DefinitionRequest(
+    val requestId: Long = 0,
+    val cellId: String = "",
+    val cursorOffsetUtf16: Int = -1
+)
 
 class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
 
@@ -26,6 +39,7 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
     private val deleteCellQuery: JBCefJSQuery = JBCefJSQuery.create(browser as com.intellij.ui.jcef.JBCefBrowserBase)
     private val saveNotebookQuery: JBCefJSQuery = JBCefJSQuery.create(browser as com.intellij.ui.jcef.JBCefBrowserBase)
     private val ideActionQuery: JBCefJSQuery = JBCefJSQuery.create(browser as com.intellij.ui.jcef.JBCefBrowserBase)
+    private val definitionQuery: JBCefJSQuery = JBCefJSQuery.create(browser as com.intellij.ui.jcef.JBCefBrowserBase)
 
     private val gson = Gson()
 
@@ -48,6 +62,7 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
     var onDeleteCell: ((String) -> Unit)? = null
     var onSaveNotebook: (() -> Unit)? = null
     var onIdeAction: ((String) -> Unit)? = null
+    var onDefinitionRequested: ((DefinitionRequest) -> Unit)? = null
 
     private var pendingNotebook: Notebook? = null
     private var loaded = false
@@ -58,10 +73,23 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
 
     init {
         Disposer.register(parentDisposable, this)
+        Disposer.register(this, browser)
+        listOf(
+            cellSelectedQuery,
+            cellSourceChangedQuery,
+            runCellQuery,
+            addCellQuery,
+            deleteCellQuery,
+            saveNotebookQuery,
+            ideActionQuery,
+            definitionQuery
+        ).forEach { Disposer.register(this, it) }
 
         cellSelectedQuery.addHandler { cellId ->
-            selectedCellId = cellId
-            onCellSelected?.invoke(cellId)
+            dispatchNotebookBridgeEvent {
+                selectedCellId = cellId
+                onCellSelected?.invoke(cellId)
+            }
             null
         }
 
@@ -70,13 +98,15 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
             if (sepIdx >= 0) {
                 val cellId = data.substring(0, sepIdx)
                 val source = data.substring(sepIdx + 1)
-                onCellSourceChanged?.invoke(cellId, source)
+                dispatchNotebookBridgeEvent {
+                    onCellSourceChanged?.invoke(cellId, source)
+                }
             }
             null
         }
 
         runCellQuery.addHandler { cellId ->
-            javax.swing.SwingUtilities.invokeLater {
+            dispatchNotebookBridgeEvent {
                 onRunCell?.invoke(cellId)
             }
             null
@@ -85,7 +115,7 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
         addCellQuery.addHandler { data ->
             val parts = data.split(" ", limit = 2)
             if (parts.size == 2) {
-                javax.swing.SwingUtilities.invokeLater {
+                dispatchNotebookBridgeEvent {
                     onAddCell?.invoke(parts[0], parts[1])
                 }
             }
@@ -93,22 +123,36 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
         }
 
         deleteCellQuery.addHandler { cellId ->
-            javax.swing.SwingUtilities.invokeLater {
+            dispatchNotebookBridgeEvent {
                 onDeleteCell?.invoke(cellId)
             }
             null
         }
 
         saveNotebookQuery.addHandler {
-            javax.swing.SwingUtilities.invokeLater {
+            dispatchNotebookBridgeEvent {
                 onSaveNotebook?.invoke()
             }
             null
         }
 
         ideActionQuery.addHandler { actionId ->
-            javax.swing.SwingUtilities.invokeLater {
+            dispatchNotebookBridgeEvent {
                 onIdeAction?.invoke(actionId)
+            }
+            null
+        }
+
+        definitionQuery.addHandler { json ->
+            try {
+                val request = gson.fromJson(json, DefinitionRequest::class.java)
+                if (request.cellId.isNotBlank() && request.cursorOffsetUtf16 >= 0) {
+                    dispatchNotebookBridgeEvent {
+                        onDefinitionRequested?.invoke(request)
+                    }
+                }
+            } catch (_: Exception) {
+                // A malformed page request is ignored; it must never break the editor bridge.
             }
             null
         }
@@ -155,11 +199,10 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
     }
 
     fun addCellToView(cell: Cell) {
-        val type = if (cell.cellType == CellType.CODE) "code" else "markdown"
-        val source = if (cell.cellType == CellType.MARKDOWN) {
-            escapeJs(renderMarkdown(cell.source))
-        } else {
-            escapeJs(cell.source)
+        val type = cellTypeName(cell.cellType)
+        val source = when (cell.cellType) {
+            CellType.CODE -> escapeJs(cell.source)
+            CellType.MARKDOWN, CellType.RAW -> escapeJs(cell.source)
         }
         val outputsHtml = if (cell.cellType == CellType.CODE) {
             escapeJs(renderOutputs(cell.outputs))
@@ -167,20 +210,30 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
             ""
         }
         val execCount = cell.executionCount?.toString() ?: "null"
-        executeJs("addCell('${escapeJs(cell.id)}', '$type', '$source', '$outputsHtml', $execCount)")
-        if (cell.cellType == CellType.MARKDOWN) {
+        val attachmentsJson = escapeJs(gson.toJson(cell.attachments))
+        executeJs(
+            "addCell('${escapeJs(cell.id)}', '$type', '$source', '$outputsHtml', " +
+                "$execCount, '$attachmentsJson')"
+        )
+        if (cell.cellType != CellType.CODE) {
             executeJs("setMarkdownSource('${escapeJs(cell.id)}', '${escapeJs(cell.source)}')")
         }
     }
 
     fun insertCellAfter(afterCellId: String, cell: Cell) {
-        val type = if (cell.cellType == CellType.CODE) "code" else "markdown"
-        val source = if (cell.cellType == CellType.MARKDOWN) {
-            escapeJs(renderMarkdown(cell.source))
-        } else {
-            escapeJs(cell.source)
+        val type = cellTypeName(cell.cellType)
+        val source = when (cell.cellType) {
+            CellType.CODE -> escapeJs(cell.source)
+            CellType.MARKDOWN, CellType.RAW -> escapeJs(cell.source)
         }
-        executeJs("insertCellAfter('${escapeJs(afterCellId)}', '${escapeJs(cell.id)}', '$type', '$source', '', null)")
+        val attachmentsJson = escapeJs(gson.toJson(cell.attachments))
+        executeJs(
+            "insertCellAfter('${escapeJs(afterCellId)}', '${escapeJs(cell.id)}', '$type', " +
+                "'$source', '', null, '$attachmentsJson')"
+        )
+        if (cell.cellType != CellType.CODE) {
+            executeJs("setMarkdownSource('${escapeJs(cell.id)}', '${escapeJs(cell.source)}')")
+        }
     }
 
     fun removeCellFromView(cellId: String) {
@@ -212,6 +265,12 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
 
     fun notifyCellExecuted(cellId: String, success: Boolean) {
         executeJs("onCellExecuted('${escapeJs(cellId)}', $success)")
+    }
+
+    fun navigateToCellLocation(cellId: String, line: Int, codePointColumn: Int, symbol: String) {
+        executeJs(
+            "navigateToCellLocation('${escapeJs(cellId)}', $line, $codePointColumn, '${escapeJs(symbol)}')"
+        )
     }
 
     /**
@@ -263,43 +322,40 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
     private fun renderMimeBundle(data: Map<String, Any>?): String {
         if (data == null) return ""
         data["text/html"]?.let {
-            return "<div class=\"output-html\">${it}</div>"
+            return "<div class=\"output-html\">${mimeText(it)}</div>"
         }
         data["image/png"]?.let {
-            return "<div class=\"output-image\"><img src=\"data:image/png;base64,${it}\"></div>"
+            return "<div class=\"output-image\"><img src=\"data:image/png;base64,${mimeText(it)}\"></div>"
         }
         data["image/svg+xml"]?.let {
-            return "<div class=\"output-image\">${it}</div>"
+            return "<div class=\"output-image\">${mimeText(it)}</div>"
         }
         data["text/plain"]?.let {
-            return "<div class=\"output-stream\">${escapeHtml(it.toString())}</div>"
+            return "<div class=\"output-stream\">${escapeHtml(mimeText(it))}</div>"
         }
         return ""
     }
 
-    fun renderMarkdown(source: String): String {
-        var html = escapeHtml(source)
-        html = html.replace(Regex("^#{6}\\s+(.+)$", RegexOption.MULTILINE), "<h6>$1</h6>")
-        html = html.replace(Regex("^#{5}\\s+(.+)$", RegexOption.MULTILINE), "<h5>$1</h5>")
-        html = html.replace(Regex("^#{4}\\s+(.+)$", RegexOption.MULTILINE), "<h4>$1</h4>")
-        html = html.replace(Regex("^#{3}\\s+(.+)$", RegexOption.MULTILINE), "<h3>$1</h3>")
-        html = html.replace(Regex("^#{2}\\s+(.+)$", RegexOption.MULTILINE), "<h2>$1</h2>")
-        html = html.replace(Regex("^#\\s+(.+)$", RegexOption.MULTILINE), "<h1>$1</h1>")
-        html = html.replace(Regex("```([\\s\\S]*?)```"), "<pre><code>$1</code></pre>")
-        html = html.replace(Regex("`([^`]+)`"), "<code>$1</code>")
-        html = html.replace(Regex("\\*\\*(.+?)\\*\\*"), "<strong>$1</strong>")
-        html = html.replace(Regex("\\*(.+?)\\*"), "<em>$1</em>")
-        html = html.replace(Regex("\\[([^\\]]+)\\]\\(([^)]+)\\)"), "<a href=\"$2\">$1</a>")
-        html = html.replace(Regex("^[-*]\\s+(.+)$", RegexOption.MULTILINE), "<li>$1</li>")
-        html = html.replace(Regex("(<li>.*</li>\\n?)+"), "<ul>$0</ul>")
-        html = html.replace(Regex("^>\\s+(.+)$", RegexOption.MULTILINE), "<blockquote>$1</blockquote>")
-        html = html.replace(Regex("\n\n"), "</p><p>")
-        html = "<p>$html</p>"
-        return html
+    private fun mimeText(value: Any): String = when (value) {
+        is JsonElement -> when {
+            value.isJsonNull -> ""
+            value.isJsonPrimitive && value.asJsonPrimitive.isString -> value.asString
+            value.isJsonArray && value.asJsonArray.all {
+                it.isJsonPrimitive && it.asJsonPrimitive.isString
+            } -> value.asJsonArray.joinToString("") { it.asString }
+            else -> gson.toJson(value)
+        }
+        else -> value.toString()
     }
 
     private fun stripAnsi(text: String): String {
-        return text.replace(Regex("\\[[0-9;]*m"), "")
+        return text.replace(Regex("\u001B\\[[0-?]*[ -/]*[@-~]"), "")
+    }
+
+    private fun cellTypeName(cellType: CellType): String = when (cellType) {
+        CellType.CODE -> "code"
+        CellType.MARKDOWN -> "markdown"
+        CellType.RAW -> "raw"
     }
 
     private fun escapeHtml(text: String): String {
@@ -330,6 +386,7 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
         val deleteCellHandler = deleteCellQuery.inject("id")
         val saveHandler = saveNotebookQuery.inject("'save'")
         val ideActionHandler = ideActionQuery.inject("actionId")
+        val definitionHandler = definitionQuery.inject("data")
         executeJs("""
             initBridge({
                 cellSelected: function(id) { $selectHandler },
@@ -338,7 +395,8 @@ class NotebookPanel(private val parentDisposable: Disposable) : Disposable {
                 addCell: function(afterId, type) { var data = afterId + ' ' + type; $addCellHandler },
                 deleteCell: function(id) { $deleteCellHandler },
                 saveNotebook: function() { $saveHandler },
-                runIdeAction: function(actionId) { $ideActionHandler }
+                runIdeAction: function(actionId) { $ideActionHandler },
+                goToDefinition: function(data) { $definitionHandler }
             });
         """.trimIndent())
     }

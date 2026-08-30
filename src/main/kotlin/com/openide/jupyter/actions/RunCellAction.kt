@@ -4,6 +4,7 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.openide.jupyter.kernel.KernelStatus
+import com.openide.jupyter.model.CellExecutionState
 import com.openide.jupyter.model.CellType
 
 class RunCellAction : AnAction() {
@@ -17,11 +18,12 @@ class RunCellAction : AnAction() {
 
     override fun update(e: AnActionEvent) {
         val editor = getCurrentNotebookEditor(e)
-        val hasKernel = editor?.kernelManager?.status?.let {
-            it == KernelStatus.IDLE || it == KernelStatus.BUSY
-        } ?: false
-        val hasCell = editor?.getSelectedCell()?.cellType == CellType.CODE
-        e.presentation.isEnabled = hasKernel && hasCell
+        val selectedCell = editor?.getSelectedCell()
+        val hasCell = selectedCell?.cellType == CellType.CODE &&
+            selectedCell.executionState != CellExecutionState.EXECUTING
+        val canRun = editor?.kernelManager?.status != KernelStatus.STARTING
+        // executeCell already performs the supported on-demand kernel startup.
+        e.presentation.isEnabled = hasCell && canRun
     }
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT

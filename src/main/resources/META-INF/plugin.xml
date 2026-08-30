@@ -1,33 +1,43 @@
 <idea-plugin>
     <id>com.openide.jupyter</id>
     <name>Jupyter Notebook</name>
-    <version>0.2.3</version>
+    <version>0.3.0</version>
     <vendor>German Kochnev</vendor>
     <description><![CDATA[
         <p>Open, edit, and run Jupyter notebooks (<code>.ipynb</code>) directly inside your IDE.
-        The plugin launches an IPython kernel on your project's own Python interpreter and talks to it
-        over ZeroMQ &mdash; <b>no external Jupyter server required</b>.</p>
+        The plugin launches an IPython kernel on your project's own Python interpreter or attaches to
+        an existing classic Jupyter kernel and talks to it over ZeroMQ.</p>
 
         <h3>Features</h3>
         <ul>
             <li><b>Native notebook editor</b> &mdash; code and Markdown cells with add / delete / reorder, rendered output (text, HTML, images, error tracebacks).</li>
             <li><b>Python syntax highlighting</b> with cross-cell awareness &mdash; variables, functions and imports defined in earlier cells are highlighted in later ones.</li>
             <li><b>Inline diagnostics</b> &mdash; syntax errors, undefined names (not defined in this or an earlier cell) and unresolved imports are underlined, with an IDE-style tooltip describing the problem. Uses <code>pyflakes</code> when available and falls back to a built-in analyzer otherwise.</li>
-            <li><b>Go to definition</b> &mdash; <code>Cmd</code>/<code>Ctrl</code>+Click or <code>Cmd</code>/<code>Ctrl</code>+B on a variable jumps to where it was defined and highlights its other uses; hovering with the modifier shows a clickable link.</li>
+            <li><b>Go to definition</b> &mdash; <code>Cmd</code>/<code>Ctrl</code>+Click or <code>Cmd</code>/<code>Ctrl</code>+B resolves lexical notebook definitions and opens project, standard-library, or installed-library Python source.</li>
             <li><b>Editor shortcuts inside cells</b> &mdash; comment line (<code>Cmd</code>+/), duplicate line (<code>Cmd</code>+D), delete line (<code>Cmd</code>+&#9003;), move line (<code>Opt</code>+<code>Shift</code>+&uarr;/&darr;).</li>
             <li><b>Find &amp; Replace</b> &mdash; <code>Cmd</code>/<code>Ctrl</code>+F searches across cell sources, rendered Markdown and outputs with highlighted matches and a match counter; <code>Cmd</code>/<code>Ctrl</code>+R adds replace and replace-all for code cells.</li>
             <li><b>Run &amp; advance</b> &mdash; <code>Shift</code>+<code>Enter</code> runs a cell and, once it finishes successfully, moves focus to the next cell, creating a new one if it was the last.</li>
             <li><b>IDE-global shortcuts pass through</b> &mdash; Search Everywhere, Find in Files, Go to File and Recent Files keep working while the notebook is focused.</li>
-            <li><b>Kernel management</b> &mdash; automatic interpreter detection, on-demand kernel start, restart, interrupt, and auto-install of <code>ipykernel</code>; the working directory is the notebook's folder.</li>
+            <li><b>Kernel management</b> &mdash; automatic interpreter detection, launch, attach by classic connection file or manual JSON parameters, ownership-safe stop/reconnect, and interrupt; the working directory of a launched kernel is the notebook's folder.</li>
             <li><b>Standard format</b> &mdash; reads and writes nbformat v4, fully compatible with JupyterLab and VS Code. Saves with <code>Cmd</code>+S.</li>
         </ul>
 
-        <p>Requires a Python 3.8+ interpreter with <code>ipykernel</code> (offered automatically on first run).</p>
+        <p>Launching a new kernel requires a Python 3.8+ interpreter with <code>ipykernel</code>. Attaching to an existing kernel does not launch or shut down that external process.</p>
 
         <p>Source code on <a href="https://github.com/germanKoch/jupyter-openide">GitHub</a>. Issues and pull requests are welcome &mdash; and if the plugin saves you some time, a &#11088; on the repo helps others find it.</p>
     ]]></description>
 
     <change-notes><![CDATA[
+        <h3>0.3.0</h3>
+        <ul>
+            <li><b>Kernel connections:</b> start a new IPython kernel or attach to an existing kernel using a Jupyter connection file or manual connection parameters. External kernels are disconnected without being shut down.</li>
+            <li><b>Source navigation:</b> <code>Cmd</code>/<code>Ctrl</code>+Click and <code>Cmd</code>/<code>Ctrl</code>+B now open definitions in notebook cells, project files, the Python standard library, and installed packages.</li>
+            <li><b>Editor fixes:</b> corrected caret alignment after reopening notebooks, hid the caret outside edit mode, and made cell selection/edit transitions deterministic.</li>
+            <li><b>Markdown fixes:</b> repaired edit/preview transitions and rendering for headings, lists, tables, fenced code, links, attachments, and escaped content.</li>
+            <li><b>Notebook compatibility:</b> preserve cell metadata, attachments, rich MIME outputs, raw cells, and nullable execution counts during load/save.</li>
+            <li><b>Kernel reliability:</b> fixed startup, shutdown, reconnect, output ordering, and stale-callback races; added support for display updates and deferred output clearing.</li>
+        </ul>
+
         <h3>0.2.3</h3>
         <ul>
             <li><b>Theme-aware editor:</b> the notebook view now follows the IDE's Light/Darcula theme instead of always rendering dark &mdash; colors (cell backgrounds, syntax highlighting, diagnostics tooltip, find bar, etc.) switch automatically, including live updates if you change the IDE theme while a notebook is open.</li>
@@ -83,8 +93,8 @@
         <group id="jupyter.toolbar" text="Jupyter" description="Jupyter Notebook actions">
             <action id="jupyter.startKernel"
                     class="com.openide.jupyter.actions.StartKernelAction"
-                    text="Start Kernel"
-                    description="Start Jupyter kernel for current notebook"/>
+                    text="Connect / Start Kernel"
+                    description="Launch a Jupyter kernel or attach to an existing connection"/>
             <action id="jupyter.stopKernel"
                     class="com.openide.jupyter.actions.StopKernelAction"
                     text="Stop Kernel"

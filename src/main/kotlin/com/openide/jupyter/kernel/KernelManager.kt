@@ -1,374 +1,847 @@
 package com.openide.jupyter.kernel
 
-import com.intellij.openapi.Disposable
-import com.intellij.openapi.util.Disposer
+import com.google.gson.JsonObject
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.process.ProcessAdapter
 import com.intellij.execution.process.ProcessEvent
-import com.google.gson.Gson
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
-import org.zeromq.ZContext
-import org.zeromq.ZMQ
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.util.Disposer
 import java.io.File
-import java.nio.charset.StandardCharsets
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
 import java.security.SecureRandom
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
-class KernelManager(
-    val pythonPath: String,
+data class KernelManagerConfig(
+    val startupTimeoutMillis: Long = 10_000,
+    val heartbeatIntervalMillis: Long = 5_000,
+    val heartbeatTimeoutMillis: Long = 5_000,
+    val shutdownTimeoutMillis: Long = 500,
+    val transportCloseTimeoutMillis: Long = 2_000
+) {
+    init {
+        require(startupTimeoutMillis > 0) { "startupTimeoutMillis must be positive" }
+        require(heartbeatIntervalMillis > 0) { "heartbeatIntervalMillis must be positive" }
+        require(heartbeatTimeoutMillis > 0) { "heartbeatTimeoutMillis must be positive" }
+        require(shutdownTimeoutMillis >= 0) { "shutdownTimeoutMillis must not be negative" }
+        require(transportCloseTimeoutMillis > 0) { "transportCloseTimeoutMillis must be positive" }
+    }
+}
+
+class KernelRequestHandle internal constructor(
+    val msgId: String,
+    val completion: CompletableFuture<Unit>
+)
+
+internal interface ManagedKernelProcess {
+    val isAlive: Boolean
+    fun destroy()
+}
+
+internal fun interface KernelProcessLauncher {
+    fun launch(
+        target: KernelTarget.Launch,
+        connectionFile: File,
+        onTerminated: (Int) -> Unit
+    ): ManagedKernelProcess
+}
+
+internal object DefaultKernelProcessLauncher : KernelProcessLauncher {
+    override fun launch(
+        target: KernelTarget.Launch,
+        connectionFile: File,
+        onTerminated: (Int) -> Unit
+    ): ManagedKernelProcess {
+        val commandLine = GeneralCommandLine(
+            target.pythonPath,
+            "-m",
+            "ipykernel_launcher",
+            "-f",
+            connectionFile.absolutePath
+        ).apply {
+            withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
+            target.workingDirectory?.let { workDirectory = it }
+        }
+        val handler = OSProcessHandler(commandLine)
+        handler.addProcessListener(object : ProcessAdapter() {
+            override fun processTerminated(event: ProcessEvent) {
+                onTerminated(event.exitCode)
+            }
+        })
+        handler.startNotify()
+
+        return object : ManagedKernelProcess {
+            private val destroyed = AtomicBoolean(false)
+
+            override val isAlive: Boolean
+                get() = !handler.isProcessTerminated
+
+            override fun destroy() {
+                if (destroyed.compareAndSet(false, true) && !handler.isProcessTerminated) {
+                    handler.destroyProcess()
+                }
+            }
+        }
+    }
+}
+
+class KernelManager internal constructor(
+    val target: KernelTarget,
     private val parentDisposable: Disposable,
-    private val workingDirectory: File? = null
+    val config: KernelManagerConfig,
+    private val transportFactory: KernelTransportFactory,
+    private val processLauncher: KernelProcessLauncher
 ) : Disposable {
 
+    constructor(
+        target: KernelTarget,
+        parentDisposable: Disposable,
+        config: KernelManagerConfig = KernelManagerConfig()
+    ) : this(
+        target,
+        parentDisposable,
+        config,
+        DefaultKernelTransportFactory,
+        DefaultKernelProcessLauncher
+    )
+
+    /** Backward-compatible launch constructor used by the current editor. */
+    constructor(
+        pythonPath: String,
+        parentDisposable: Disposable,
+        workingDirectory: File? = null
+    ) : this(
+        KernelTarget.Launch(pythonPath, workingDirectory),
+        parentDisposable,
+        KernelManagerConfig(),
+        DefaultKernelTransportFactory,
+        DefaultKernelProcessLauncher
+    )
+
+    val ownership: KernelOwnership get() = target.ownership
+    val pythonPath: String? get() = (target as? KernelTarget.Launch)?.pythonPath
+    /** Interpreter explicitly selected for local source lookup, including attached kernels. */
+    val sourceInterpreter: String? get() = target.sourceInterpreter
+
+    @Volatile
     var status: KernelStatus = KernelStatus.DISCONNECTED
-        private set(value) {
-            field = value
-            onStatusChanged?.invoke(value)
-        }
+        private set
 
     var onStatusChanged: ((KernelStatus) -> Unit)? = null
     var onMessage: ((String, JsonObject) -> Unit)? = null
+    var onRequestFailed: ((String, Throwable) -> Unit)? = null
+    var sourceLocationResolver: KernelSourceLocationResolver? = null
 
-    private var processHandler: OSProcessHandler? = null
-    private var connectionFile: File? = null
-    private var connectionInfo: KernelConnectionInfo? = null
-    private var zmqContext: ZContext? = null
-    private var shellSocket: ZMQ.Socket? = null
-    private var iopubSocket: ZMQ.Socket? = null
-    private var controlSocket: ZMQ.Socket? = null
-    private var heartbeatSocket: ZMQ.Socket? = null
-    private var iopubThread: Thread? = null
-    private var heartbeatThread: Thread? = null
-    private val session = UUID.randomUUID().toString()
-    private val messageCallbacks = ConcurrentHashMap<String, (JsonObject) -> Unit>()
-    private val gson = Gson()
-    @Volatile private var running = false
+    private val lifecycleLock = Any()
+    private val generation = AtomicLong(0)
+    private val pendingRequests = ConcurrentHashMap<String, PendingRequest>()
+    private val processExitFailures = ConcurrentHashMap<Long, Throwable>()
+
+    @Volatile
+    private var activeTransport: KernelTransport? = null
+
+    @Volatile
+    private var activeProcess: ManagedKernelProcess? = null
+
+    @Volatile
+    private var ownedConnectionFile: File? = null
+
+    @Volatile
+    private var disposed = false
 
     init {
         Disposer.register(parentDisposable, this)
     }
 
+    /**
+     * Starts an owned kernel or attaches to an existing connection and blocks
+     * until a matching kernel_info_reply and heartbeat echo are observed.
+     */
     fun start() {
-        if (status != KernelStatus.DISCONNECTED) return
-        status = KernelStatus.STARTING
+        var startingStatusCallback: ((KernelStatus) -> Unit)? = null
+        val myGeneration = synchronized(lifecycleLock) {
+            check(!disposed) { "KernelManager is disposed" }
+            if (status != KernelStatus.DISCONNECTED) return
+            generation.incrementAndGet().also {
+                status = KernelStatus.STARTING
+                startingStatusCallback = onStatusChanged
+            }
+        }
+        notifyStatusChanged(startingStatusCallback, KernelStatus.STARTING)
+
+        var localTransport: KernelTransport? = null
+        var localProcess: ManagedKernelProcess? = null
+        var localOwnedFile: File? = null
 
         try {
-            val connFile = createConnectionFile()
-            connectionFile = connFile
-            connectionInfo = parseConnectionFile(connFile)
+            val connectionInfo = when (val currentTarget = target) {
+                is KernelTarget.Launch -> {
+                    val (file, info) = createOwnedConnectionFile()
+                    localOwnedFile = file
+                    ensureGenerationActive(myGeneration)
+                    localProcess = processLauncher.launch(currentTarget, file) { exitCode ->
+                        handleProcessTerminated(myGeneration, exitCode)
+                    }
+                    processExitFailures.remove(myGeneration)?.let { throw it }
+                    check(localProcess.isAlive) { "Jupyter kernel process exited during startup" }
+                    info
+                }
+                is KernelTarget.ConnectionFile -> KernelConnectionInfoCodec.read(currentTarget.file)
+                is KernelTarget.Manual -> currentTarget.connectionInfo.validated()
+            }
 
-            val cmd = GeneralCommandLine(
-                pythonPath, "-m", "ipykernel_launcher", "-f", connFile.absolutePath
-            )
-            cmd.withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
-            workingDirectory?.let { cmd.workDirectory = it }
+            ensureGenerationActive(myGeneration)
+            val transportReference = arrayOfNulls<KernelTransport>(1)
+            val listener = object : KernelTransportListener {
+                override fun onMessage(message: JupyterMessage) {
+                    handleTransportMessage(myGeneration, transportReference[0], message)
+                }
 
-            val handler = OSProcessHandler(cmd)
-            handler.addProcessListener(object : ProcessAdapter() {
-                override fun processTerminated(event: ProcessEvent) {
-                    if (running) {
-                        running = false
-                        status = KernelStatus.DISCONNECTED
+                override fun onDisconnected(cause: Throwable) {
+                    handleTransportDisconnected(
+                        myGeneration,
+                        transportReference[0],
+                        cause
+                    )
+                }
+            }
+            localTransport = transportFactory.create(connectionInfo, config, listener)
+            transportReference[0] = localTransport
+
+            synchronized(lifecycleLock) {
+                ensureGenerationActive(myGeneration)
+                activeTransport = localTransport
+                activeProcess = localProcess
+                ownedConnectionFile = localOwnedFile
+            }
+
+            localTransport.start()
+            processExitFailures.remove(myGeneration)?.let { throw it }
+            try {
+                localTransport.ready.get(config.startupTimeoutMillis, TimeUnit.MILLISECONDS)
+            } catch (e: TimeoutException) {
+                throw KernelDisconnectedException(
+                    "Jupyter kernel did not answer kernel_info and heartbeat within " +
+                        "${config.startupTimeoutMillis} ms",
+                    e
+                )
+            }
+            processExitFailures.remove(myGeneration)?.let { throw it }
+            val idleStatusCallback = synchronized(lifecycleLock) {
+                ensureGenerationActive(myGeneration)
+                check(activeTransport === localTransport) {
+                    "Jupyter kernel transport disconnected during startup"
+                }
+                if (localProcess != null) {
+                    check(activeProcess === localProcess && localProcess.isAlive) {
+                        "Jupyter kernel process exited during startup"
+                    }
+                    // isAlive may race with the process callback. Re-read both
+                    // the recorded exit and lifecycle generation before making
+                    // the successful startup state externally visible.
+                    processExitFailures.remove(myGeneration)?.let { throw it }
+                    ensureGenerationActive(myGeneration)
+                    check(activeProcess === localProcess) {
+                        "Jupyter kernel process disconnected during startup"
                     }
                 }
-            })
-            handler.startNotify()
-            processHandler = handler
-
-            connectZmq()
-            running = true
-            startIopubListener()
-            startHeartbeat()
-            waitForReady()
-
-        } catch (e: Exception) {
-            status = KernelStatus.DISCONNECTED
-            cleanup()
-            throw e
+                check(activeTransport === localTransport) {
+                    "Jupyter kernel transport disconnected during startup"
+                }
+                status = KernelStatus.IDLE
+                onStatusChanged
+            }
+            notifyStatusChanged(idleStatusCallback, KernelStatus.IDLE)
+        } catch (t: Throwable) {
+            val cause = unwrapFailure(t)
+            closeSafely(localTransport)
+            destroySafely(localProcess)
+            deleteSafely(localOwnedFile)
+            clearActiveIfMatches(localTransport, localProcess, localOwnedFile)
+            val failureTransition = synchronized(lifecycleLock) {
+                if (generation.get() != myGeneration) {
+                    null
+                } else {
+                    generation.incrementAndGet()
+                    status = KernelStatus.DISCONNECTED
+                    StartupFailureTransition(
+                        statusCallback = onStatusChanged,
+                        pendingRequests = detachAllPending()
+                    )
+                }
+            }
+            failureTransition?.let { transition ->
+                failPending(transition.pendingRequests, cause)
+                notifyStatusChanged(transition.statusCallback, KernelStatus.DISCONNECTED)
+            }
+            throw asRuntimeFailure(cause)
+        } finally {
+            processExitFailures.remove(myGeneration)
         }
     }
 
+    /**
+     * Stops an owned kernel, but only disconnects an attached target. Cleanup is
+     * always attempted, even when the externally visible status is disconnected.
+     */
     fun stop() {
-        if (status == KernelStatus.DISCONNECTED) return
-        running = false
+        val snapshot = synchronized(lifecycleLock) {
+            generation.incrementAndGet()
+            val value = ResourceSnapshot(
+                transport = activeTransport,
+                process = activeProcess,
+                ownedFile = ownedConnectionFile
+            )
+            activeTransport = null
+            activeProcess = null
+            ownedConnectionFile = null
+            value
+        }
 
-        try {
-            sendControlMessage("shutdown_request", """{"restart": false}""")
-            Thread.sleep(500)
-        } catch (_: Exception) {}
+        val stopped = KernelDisconnectedException("Kernel session stopped")
+        failAllPending(stopped)
 
-        cleanup()
-        status = KernelStatus.DISCONNECTED
+        if (ownership == KernelOwnership.OWNED) {
+            snapshot.transport?.let { transport ->
+                try {
+                    transport.requestShutdown().get(
+                        config.shutdownTimeoutMillis,
+                        TimeUnit.MILLISECONDS
+                    )
+                } catch (_: Exception) {
+                    // The owned process is destroyed below if graceful shutdown fails.
+                }
+            }
+        }
+
+        closeSafely(snapshot.transport)
+        if (ownership == KernelOwnership.OWNED) {
+            destroySafely(snapshot.process)
+            deleteSafely(snapshot.ownedFile)
+        }
+        publishStatus(KernelStatus.DISCONNECTED)
     }
 
+    fun reconnect() {
+        stop()
+        start()
+    }
+
+    /**
+     * Legacy API. A placeholder is installed before send, so messages arriving
+     * before registerCallback() are buffered rather than lost.
+     */
     fun sendExecuteRequest(code: String): String {
-        val msgId = UUID.randomUUID().toString()
+        return sendLegacyShellRequest("execute_request", executeContent(code))
+    }
+
+    /** Atomic execute API recommended for new integrations. */
+    fun execute(code: String, callback: (JsonObject) -> Unit): KernelRequestHandle {
+        return sendAtomicShellRequest("execute_request", executeContent(code), callback)
+    }
+
+    /** Standard Jupyter inspect request; source file/line is not guaranteed by the protocol. */
+    fun inspect(
+        code: String,
+        cursorPosition: Int = code.codePointCount(0, code.length),
+        detailLevel: Int = 0,
+        callback: (JsonObject) -> Unit
+    ): KernelRequestHandle {
+        require(cursorPosition >= 0) { "cursorPosition must not be negative" }
+        require(detailLevel >= 0) { "detailLevel must not be negative" }
         val content = JsonObject().apply {
             addProperty("code", code)
-            addProperty("silent", false)
-            addProperty("store_history", true)
-            addProperty("allow_stdin", false)
-            addProperty("stop_on_error", true)
+            addProperty("cursor_pos", cursorPosition)
+            addProperty("detail_level", detailLevel)
         }
-        sendShellMessage("execute_request", content, msgId)
-        return msgId
+        return sendAtomicShellRequest("inspect_request", content, callback)
+    }
+
+    /** Returns false and a failed Result when no language-aware resolver is installed. */
+    fun requestSourceLocation(
+        expression: String,
+        callback: (Result<KernelSourceLocation?>) -> Unit
+    ): Boolean {
+        val resolver = sourceLocationResolver
+        if (resolver == null) {
+            callback(
+                Result.failure(
+                    UnsupportedOperationException(
+                        "No kernel source-location resolver is configured"
+                    )
+                )
+            )
+            return false
+        }
+        resolver.request(expression, callback)
+        return true
     }
 
     fun interrupt() {
-        sendControlMessage("interrupt_request", "{}")
+        val transport = activeTransport ?: return
+        transport.sendControl("interrupt_request", JsonObject())
     }
 
     fun registerCallback(msgId: String, callback: (JsonObject) -> Unit) {
-        messageCallbacks[msgId] = callback
+        pendingRequests.computeIfAbsent(msgId) { PendingRequest(autoRemove = false) }
+            .register(callback)
     }
 
     fun removeCallback(msgId: String) {
-        messageCallbacks.remove(msgId)
+        pendingRequests.remove(msgId)?.complete()
     }
 
-    private fun createConnectionFile(): File {
-        val random = SecureRandom()
-        val key = ByteArray(32).also { random.nextBytes(it) }
-            .joinToString("") { "%02x".format(it) }
-
-        val ports = (0..4).map { findFreePort() }
-        val connInfo = JsonObject().apply {
-            addProperty("ip", "127.0.0.1")
-            addProperty("transport", "tcp")
-            addProperty("shell_port", ports[0])
-            addProperty("iopub_port", ports[1])
-            addProperty("stdin_port", ports[2])
-            addProperty("control_port", ports[3])
-            addProperty("hb_port", ports[4])
-            addProperty("key", key)
-            addProperty("signature_scheme", "hmac-sha256")
-            addProperty("kernel_name", "python3")
+    private fun sendLegacyShellRequest(msgType: String, content: JsonObject): String {
+        val msgId = UUID.randomUUID().toString()
+        val pending = PendingRequest(autoRemove = false)
+        check(pendingRequests.putIfAbsent(msgId, pending) == null)
+        try {
+            requireReadyTransport().sendShell(msgType, content, msgId)
+        } catch (t: Throwable) {
+            pendingRequests.remove(msgId, pending)
+            if (pending.fail(t)) notifyRequestFailed(msgId, t)
+            throw t
         }
-        val file = File.createTempFile("jupyter_kernel_", ".json")
-        file.deleteOnExit()
-        file.writeText(gson.toJson(connInfo))
-        return file
+        return msgId
     }
 
-    private fun findFreePort(): Int {
-        java.net.ServerSocket(0).use { return it.localPort }
-    }
-
-    private fun parseConnectionFile(file: File): KernelConnectionInfo {
-        val json = JsonParser.parseString(file.readText()).asJsonObject
-        return KernelConnectionInfo(
-            ip = json.get("ip").asString,
-            transport = json.get("transport").asString,
-            shellPort = json.get("shell_port").asInt,
-            iopubPort = json.get("iopub_port").asInt,
-            stdinPort = json.get("stdin_port").asInt,
-            controlPort = json.get("control_port").asInt,
-            hbPort = json.get("hb_port").asInt,
-            key = json.get("key").asString,
-            signatureScheme = json.get("signature_scheme").asString,
-            kernelName = json.get("kernel_name").asString
-        )
-    }
-
-    private fun connectZmq() {
-        val info = connectionInfo ?: throw IllegalStateException("No connection info")
-        val ctx = ZContext()
-        zmqContext = ctx
-
-        shellSocket = ctx.createSocket(ZMQ.DEALER).apply {
-            identity = session.toByteArray()
-            connect("${info.transport}://${info.ip}:${info.shellPort}")
+    private fun sendAtomicShellRequest(
+        msgType: String,
+        content: JsonObject,
+        callback: (JsonObject) -> Unit
+    ): KernelRequestHandle {
+        val msgId = UUID.randomUUID().toString()
+        val expectedReplyType = msgType.removeSuffix("_request") + "_reply"
+        val pending = PendingRequest(
+            autoRemove = true,
+            expectedReplyType = expectedReplyType
+        ).apply { register(callback) }
+        check(pendingRequests.putIfAbsent(msgId, pending) == null)
+        try {
+            requireReadyTransport().sendShell(msgType, content, msgId)
+        } catch (t: Throwable) {
+            pendingRequests.remove(msgId, pending)
+            if (pending.fail(t)) notifyRequestFailed(msgId, t)
+            throw t
         }
-        iopubSocket = ctx.createSocket(ZMQ.SUB).apply {
-            subscribe(ByteArray(0))
-            connect("${info.transport}://${info.ip}:${info.iopubPort}")
-        }
-        controlSocket = ctx.createSocket(ZMQ.DEALER).apply {
-            identity = session.toByteArray()
-            connect("${info.transport}://${info.ip}:${info.controlPort}")
-        }
-        heartbeatSocket = ctx.createSocket(ZMQ.REQ).apply {
-            connect("${info.transport}://${info.ip}:${info.hbPort}")
-        }
+        return KernelRequestHandle(msgId, pending.completion)
     }
 
-    private fun sendShellMessage(msgType: String, content: JsonObject, msgId: String = UUID.randomUUID().toString()) {
-        val socket = shellSocket ?: return
-        val info = connectionInfo ?: return
-        sendMessage(socket, info.key, msgType, content, msgId)
-    }
-
-    private fun sendControlMessage(msgType: String, contentJson: String) {
-        val socket = controlSocket ?: return
-        val info = connectionInfo ?: return
-        val content = JsonParser.parseString(contentJson).asJsonObject
-        sendMessage(socket, info.key, msgType, content)
-    }
-
-    private fun sendMessage(socket: ZMQ.Socket, key: String, msgType: String, content: JsonObject, msgId: String = UUID.randomUUID().toString()) {
-        val header = JsonObject().apply {
-            addProperty("msg_id", msgId)
-            addProperty("session", session)
-            addProperty("username", "jupyter-openide")
-            addProperty("date", java.time.Instant.now().toString())
-            addProperty("msg_type", msgType)
-            addProperty("version", "5.4")
+    private fun requireReadyTransport(): KernelTransport {
+        val transport = activeTransport
+            ?: throw KernelDisconnectedException("No Jupyter kernel is connected")
+        if (status != KernelStatus.IDLE && status != KernelStatus.BUSY) {
+            throw KernelDisconnectedException("Jupyter kernel is not ready (status: $status)")
         }
-        val parentHeader = JsonObject()
-        val metadata = JsonObject()
-
-        val headerStr = gson.toJson(header)
-        val parentStr = gson.toJson(parentHeader)
-        val metadataStr = gson.toJson(metadata)
-        val contentStr = gson.toJson(content)
-
-        val hmac = MessageSigner.sign(key, headerStr, parentStr, metadataStr, contentStr)
-
-        synchronized(socket) {
-            socket.sendMore("<IDS|MSG>".toByteArray())
-            socket.sendMore(hmac.toByteArray())
-            socket.sendMore(headerStr.toByteArray())
-            socket.sendMore(parentStr.toByteArray())
-            socket.sendMore(metadataStr.toByteArray())
-            socket.send(contentStr.toByteArray())
-        }
+        return transport
     }
 
-    private fun startIopubListener() {
-        iopubThread = Thread({
-            val socket = iopubSocket ?: return@Thread
-            while (running) {
-                try {
-                    val frames = mutableListOf<ByteArray>()
-                    socket.receiveTimeOut = 1000
-                    val first = socket.recv(0) ?: continue
-                    frames.add(first)
-                    while (socket.hasReceiveMore()) {
-                        frames.add(socket.recv(0))
-                    }
-                    processIopubMessage(frames)
-                } catch (_: org.zeromq.ZMQException) {
-                    if (!running) break
-                } catch (_: Exception) {
-                    if (!running) break
+    private fun handleTransportMessage(
+        messageGeneration: Long,
+        transport: KernelTransport?,
+        message: JupyterMessage
+    ) {
+        if (!isCurrent(messageGeneration, transport)) return
+
+        val nextStatus = if (
+            message.channel == JupyterChannel.IOPUB &&
+            message.msgType == "status" &&
+            transport != null &&
+            transport.ready.isDone &&
+            !transport.ready.isCompletedExceptionally
+        ) {
+            when (message.content.get("execution_state")?.asString) {
+                "idle" -> KernelStatus.IDLE
+                "busy" -> KernelStatus.BUSY
+                "starting" -> KernelStatus.STARTING
+                else -> null
+            }
+        } else {
+            null
+        }
+        if (nextStatus != null) {
+            var stillCurrent = false
+            val statusCallback = synchronized(lifecycleLock) {
+                if (!isCurrent(messageGeneration, transport)) {
+                    null
+                } else {
+                    status = nextStatus
+                    stillCurrent = true
+                    onStatusChanged
                 }
             }
-        }, "jupyter-iopub-listener").apply {
-            isDaemon = true
-            start()
-        }
-    }
-
-    private fun processIopubMessage(frames: List<ByteArray>) {
-        val delimiterIdx = frames.indexOfFirst { String(it) == "<IDS|MSG>" }
-        if (delimiterIdx < 0 || frames.size < delimiterIdx + 6) return
-
-        val headerJson = String(frames[delimiterIdx + 2], StandardCharsets.UTF_8)
-        val parentHeaderJson = String(frames[delimiterIdx + 3], StandardCharsets.UTF_8)
-        val contentJson = String(frames[delimiterIdx + 5], StandardCharsets.UTF_8)
-
-        val header = JsonParser.parseString(headerJson).asJsonObject
-        val parentHeader = JsonParser.parseString(parentHeaderJson).asJsonObject
-        val content = JsonParser.parseString(contentJson).asJsonObject
-        val msgType = header.get("msg_type")?.asString ?: return
-
-        when (msgType) {
-            "status" -> {
-                val state = content.get("execution_state")?.asString
-                when (state) {
-                    "idle" -> status = KernelStatus.IDLE
-                    "busy" -> status = KernelStatus.BUSY
-                }
-            }
+            // Stop/disconnect won the race after the optimistic entry check.
+            // Treat the whole message as stale; callbacks below remain outside
+            // the lifecycle lock and cannot resurrect request/editor state.
+            if (!stillCurrent) return
+            notifyStatusChanged(statusCallback, nextStatus)
         }
 
-        val parentMsgId = parentHeader.get("msg_id")?.asString
+        val parentMsgId = message.parentMsgId
         if (parentMsgId != null) {
-            messageCallbacks[parentMsgId]?.invoke(
-                JsonObject().apply {
-                    addProperty("msg_type", msgType)
-                    add("content", content)
-                    add("header", header)
-                    add("parent_header", parentHeader)
-                }
-            )
-        }
-
-        onMessage?.invoke(msgType, JsonObject().apply {
-            add("content", content)
-            add("header", header)
-            add("parent_header", parentHeader)
-        })
-    }
-
-    private fun startHeartbeat() {
-        heartbeatThread = Thread({
-            val socket = heartbeatSocket ?: return@Thread
-            while (running) {
-                try {
-                    socket.send("ping".toByteArray())
-                    socket.receiveTimeOut = 5000
-                    socket.recv(0)
-                    Thread.sleep(5000)
-                } catch (_: Exception) {
-                    if (!running) break
+            val pending = pendingRequests[parentMsgId]
+            if (pending != null) {
+                pending.deliver(message.toLegacyJson())
+                when (val outcome = pending.observe(message, parentMsgId)) {
+                    PendingOutcome.NONE -> Unit
+                    PendingOutcome.COMPLETED -> {
+                        if (pending.autoRemove) pendingRequests.remove(parentMsgId, pending)
+                    }
+                    is PendingOutcome.FAILED -> {
+                        pendingRequests.remove(parentMsgId, pending)
+                        notifyRequestFailed(parentMsgId, outcome.cause)
+                    }
                 }
             }
-        }, "jupyter-heartbeat").apply {
-            isDaemon = true
-            start()
+        }
+
+        try {
+            onMessage?.invoke(message.msgType, message.toLegacyJson())
+        } catch (_: Exception) {
         }
     }
 
-    private fun waitForReady() {
-        val startTime = System.currentTimeMillis()
-        while (status == KernelStatus.STARTING && System.currentTimeMillis() - startTime < 10000) {
-            Thread.sleep(200)
+    private fun handleTransportDisconnected(
+        disconnectedGeneration: Long,
+        transport: KernelTransport?,
+        cause: Throwable
+    ) {
+        val snapshot = synchronized(lifecycleLock) {
+            if (!isCurrent(disconnectedGeneration, transport)) return
+            generation.incrementAndGet()
+            val value = ResourceSnapshot(activeTransport, activeProcess, ownedConnectionFile)
+            activeTransport = null
+            activeProcess = null
+            ownedConnectionFile = null
+            value
         }
-        if (status == KernelStatus.STARTING) {
-            status = KernelStatus.IDLE
+
+        failAllPending(cause)
+        if (ownership == KernelOwnership.OWNED) {
+            destroySafely(snapshot.process)
+            deleteSafely(snapshot.ownedFile)
+        }
+        publishStatus(KernelStatus.DISCONNECTED)
+    }
+
+    private fun publishStatus(value: KernelStatus) {
+        status = value
+        notifyStatusChanged(onStatusChanged, value)
+    }
+
+    private fun notifyStatusChanged(
+        callback: ((KernelStatus) -> Unit)?,
+        value: KernelStatus
+    ) {
+        try {
+            callback?.invoke(value)
+        } catch (_: Exception) {
         }
     }
 
-    private fun cleanup() {
-        running = false
-        iopubThread?.interrupt()
-        heartbeatThread?.interrupt()
-        try { shellSocket?.close() } catch (_: Exception) {}
-        try { iopubSocket?.close() } catch (_: Exception) {}
-        try { controlSocket?.close() } catch (_: Exception) {}
-        try { heartbeatSocket?.close() } catch (_: Exception) {}
-        try { zmqContext?.close() } catch (_: Exception) {}
-        shellSocket = null
-        iopubSocket = null
-        controlSocket = null
-        heartbeatSocket = null
-        zmqContext = null
-        processHandler?.destroyProcess()
-        processHandler = null
-        connectionFile?.delete()
-        connectionFile = null
-        connectionInfo = null
-        messageCallbacks.clear()
+    private fun handleProcessTerminated(processGeneration: Long, exitCode: Int) {
+        if (generation.get() != processGeneration) return
+        val failure = KernelDisconnectedException(
+            "Jupyter kernel process exited with code $exitCode"
+        )
+        processExitFailures[processGeneration] = failure
+        activeTransport?.fail(failure)
+    }
+
+    private fun failAllPending(cause: Throwable) {
+        failPending(detachAllPending(), cause)
+    }
+
+    private fun detachAllPending(): List<Pair<String, PendingRequest>> {
+        val detached = mutableListOf<Pair<String, PendingRequest>>()
+        pendingRequests.entries.toList().forEach { (msgId, pending) ->
+            if (pendingRequests.remove(msgId, pending)) {
+                detached += msgId to pending
+            }
+        }
+        return detached
+    }
+
+    private fun failPending(
+        requests: List<Pair<String, PendingRequest>>,
+        cause: Throwable
+    ) {
+        requests.forEach { (msgId, pending) ->
+            if (pending.fail(cause)) notifyRequestFailed(msgId, cause)
+        }
+    }
+
+    private fun notifyRequestFailed(msgId: String, cause: Throwable) {
+        try {
+            onRequestFailed?.invoke(msgId, cause)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun executeContent(code: String): JsonObject = JsonObject().apply {
+        addProperty("code", code)
+        addProperty("silent", false)
+        addProperty("store_history", true)
+        addProperty("allow_stdin", false)
+        addProperty("stop_on_error", true)
+    }
+
+    private fun ensureGenerationActive(expected: Long) {
+        check(generation.get() == expected && !disposed) { "Kernel startup was cancelled" }
+    }
+
+    private fun isCurrent(expectedGeneration: Long, transport: KernelTransport?): Boolean {
+        return generation.get() == expectedGeneration && activeTransport === transport
+    }
+
+    private fun clearActiveIfMatches(
+        transport: KernelTransport?,
+        process: ManagedKernelProcess?,
+        file: File?
+    ) {
+        synchronized(lifecycleLock) {
+            if (activeTransport === transport) activeTransport = null
+            if (activeProcess === process) activeProcess = null
+            if (ownedConnectionFile === file) ownedConnectionFile = null
+        }
+    }
+
+    private fun createOwnedConnectionFile(): Pair<File, KernelConnectionInfo> {
+        val reservations = mutableListOf<ServerSocket>()
+        try {
+            repeat(5) {
+                reservations += ServerSocket().apply {
+                    reuseAddress = false
+                    bind(InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
+                }
+            }
+            val ports = reservations.map { it.localPort }
+            val random = SecureRandom()
+            val key = ByteArray(32).also(random::nextBytes)
+                .joinToString("") { "%02x".format(it) }
+            val info = KernelConnectionInfo(
+                ip = "127.0.0.1",
+                transport = "tcp",
+                shellPort = ports[0],
+                iopubPort = ports[1],
+                stdinPort = ports[2],
+                controlPort = ports[3],
+                hbPort = ports[4],
+                key = key,
+                signatureScheme = MessageSigner.DEFAULT_SIGNATURE_SCHEME,
+                kernelName = "python3"
+            ).validated()
+            val file = createSecureTempFile()
+            try {
+                KernelConnectionInfoCodec.write(file, info)
+                file.deleteOnExit()
+                return file to info
+            } catch (t: Throwable) {
+                deleteSafely(file)
+                throw t
+            }
+        } finally {
+            reservations.forEach {
+                try {
+                    it.close()
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    private fun createSecureTempFile(): File {
+        val permissions = PosixFilePermissions.fromString("rw-------")
+        val path = try {
+            Files.createTempFile(
+                "jupyter_kernel_",
+                ".json",
+                PosixFilePermissions.asFileAttribute(permissions)
+            )
+        } catch (_: UnsupportedOperationException) {
+            Files.createTempFile("jupyter_kernel_", ".json")
+        }
+        try {
+            Files.setPosixFilePermissions(path, permissions)
+        } catch (_: UnsupportedOperationException) {
+        }
+        return path.toFile()
+    }
+
+    private fun unwrapFailure(t: Throwable): Throwable {
+        return if (t is ExecutionException && t.cause != null) t.cause!! else t
+    }
+
+    private fun asRuntimeFailure(t: Throwable): RuntimeException {
+        return when (t) {
+            is RuntimeException -> t
+            else -> KernelDisconnectedException("Jupyter kernel failed: ${t.message}", t)
+        }
+    }
+
+    private fun closeSafely(transport: KernelTransport?) {
+        try {
+            transport?.close()
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun destroySafely(process: ManagedKernelProcess?) {
+        try {
+            process?.destroy()
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun deleteSafely(file: File?) {
+        try {
+            file?.delete()
+        } catch (_: Exception) {
+        }
     }
 
     override fun dispose() {
+        disposed = true
         stop()
     }
-}
 
-data class KernelConnectionInfo(
-    val ip: String,
-    val transport: String,
-    val shellPort: Int,
-    val iopubPort: Int,
-    val stdinPort: Int,
-    val controlPort: Int,
-    val hbPort: Int,
-    val key: String,
-    val signatureScheme: String,
-    val kernelName: String
-)
+    private data class ResourceSnapshot(
+        val transport: KernelTransport?,
+        val process: ManagedKernelProcess?,
+        val ownedFile: File?
+    )
+
+    private data class StartupFailureTransition(
+        val statusCallback: ((KernelStatus) -> Unit)?,
+        val pendingRequests: List<Pair<String, PendingRequest>>
+    )
+
+    private sealed interface PendingOutcome {
+        data object NONE : PendingOutcome
+        data object COMPLETED : PendingOutcome
+        data class FAILED(val cause: Throwable) : PendingOutcome
+    }
+
+    private class PendingRequest(
+        val autoRemove: Boolean,
+        private val expectedReplyType: String? = null
+    ) {
+        val completion = CompletableFuture<Unit>()
+
+        private val lock = Any()
+        private val backlog = mutableListOf<JsonObject>()
+        private var callback: ((JsonObject) -> Unit)? = null
+        private var replyReceived = expectedReplyType == null
+        private var idleReceived = false
+        private var terminal = false
+
+        fun register(newCallback: (JsonObject) -> Unit) {
+            val queued = synchronized(lock) {
+                callback = newCallback
+                backlog.toList().also { backlog.clear() }
+            }
+            queued.forEach(::invokeSafely)
+        }
+
+        fun deliver(message: JsonObject) {
+            val current = synchronized(lock) {
+                if (terminal) return
+                callback.also {
+                    if (it == null) backlog += message
+                }
+            }
+            if (current != null) invokeSafely(message)
+        }
+
+        /**
+         * Atomic requests complete only after both their shell reply and the
+         * matching IOPub idle, regardless of cross-channel arrival order. An
+         * execute request aborted by stop_on_error is terminal immediately and
+         * must never be presented as a successful idle execution.
+         */
+        fun observe(message: JupyterMessage, msgId: String): PendingOutcome {
+            val outcome = synchronized(lock) {
+                if (terminal) return PendingOutcome.NONE
+
+                if (
+                    expectedReplyType != null &&
+                    message.channel == JupyterChannel.SHELL &&
+                    message.msgType == expectedReplyType
+                ) {
+                    replyReceived = true
+                    if (
+                        expectedReplyType == "execute_reply" &&
+                        message.content.get("status")?.asString == "aborted"
+                    ) {
+                        terminal = true
+                        return@synchronized PendingOutcome.FAILED(
+                            KernelRequestAbortedException(
+                                "Jupyter kernel aborted execute request $msgId after a previous failure"
+                            )
+                        )
+                    }
+                }
+                if (
+                    message.channel == JupyterChannel.IOPUB &&
+                    message.msgType == "status" &&
+                    message.content.get("execution_state")?.asString == "idle"
+                ) {
+                    idleReceived = true
+                }
+                if (replyReceived && idleReceived) {
+                    terminal = true
+                    PendingOutcome.COMPLETED
+                } else {
+                    PendingOutcome.NONE
+                }
+            }
+            when (outcome) {
+                PendingOutcome.COMPLETED -> completion.complete(Unit)
+                is PendingOutcome.FAILED -> completion.completeExceptionally(outcome.cause)
+                PendingOutcome.NONE -> Unit
+            }
+            return outcome
+        }
+
+        fun complete(): Boolean {
+            val changed = synchronized(lock) {
+                if (terminal) false else {
+                    terminal = true
+                    true
+                }
+            }
+            if (changed) completion.complete(Unit)
+            return changed
+        }
+
+        fun fail(cause: Throwable): Boolean {
+            val changed = synchronized(lock) {
+                if (terminal) false else {
+                    terminal = true
+                    backlog.clear()
+                    true
+                }
+            }
+            if (changed) completion.completeExceptionally(cause)
+            return changed
+        }
+
+        private fun invokeSafely(message: JsonObject) {
+            try {
+                callback?.invoke(message)
+            } catch (_: Exception) {
+            }
+        }
+    }
+}

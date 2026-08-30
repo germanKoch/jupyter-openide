@@ -2,6 +2,7 @@ let selectedCellId = null;
 let kotlinBridge = null;
 let highlightDebounceTimer = null;
 let diagnosticsByCell = {};
+let attachmentsByCell = Object.create(null);
 let usageHighlightName = null;
 let lastShiftAt = 0;
 let cmdLinkName = null;
@@ -9,6 +10,7 @@ let cmdLinkCellId = null;
 let cmdLinkPos = null;
 let diagTipTarget = null;
 let pendingAdvanceCellId = null;
+let definitionRequestCounter = 0;
 let searchState = {
     active: false,
     replaceMode: false,
@@ -57,6 +59,27 @@ const PYTHON_BUILTINS = new Set([
     'SystemExit', 'KeyboardInterrupt', 'AssertionError', 'UnicodeError',
     'UnicodeDecodeError', 'UnicodeEncodeError'
 ]);
+
+// Python identifiers are Unicode (apart from a few normalization details), so
+// an ASCII-only `\w` check must not prevent a valid symbol from ever reaching
+// the language-aware resolver. Chromium's Unicode properties closely match
+// Python's ID_Start/ID_Continue rules; underscore is added explicitly because
+// ECMAScript exposes it outside the Unicode ID_Start property.
+const PYTHON_IDENTIFIER_START = /^[_\p{ID_Start}]$/u;
+const PYTHON_IDENTIFIER_CONTINUE = /^[_\p{ID_Continue}]$/u;
+
+function codePointAtUtf16(text, index) {
+    if (index < 0 || index >= text.length) return '';
+    return String.fromCodePoint(text.codePointAt(index));
+}
+
+function isPythonIdentifierStart(value) {
+    return PYTHON_IDENTIFIER_START.test(value);
+}
+
+function isPythonIdentifierContinue(value) {
+    return PYTHON_IDENTIFIER_CONTINUE.test(value);
+}
 
 function tokenize(source, knownNames) {
     var tokens = [];
@@ -146,9 +169,14 @@ function tokenize(source, knownNames) {
             continue;
         }
 
-        if (/[a-zA-Z_]/.test(source[i])) {
-            var endW = i;
-            while (endW < len && /[\w]/.test(source[endW])) endW++;
+        var identifierStart = codePointAtUtf16(source, i);
+        if (isPythonIdentifierStart(identifierStart)) {
+            var endW = i + identifierStart.length;
+            while (endW < len) {
+                var identifierPart = codePointAtUtf16(source, endW);
+                if (!isPythonIdentifierContinue(identifierPart)) break;
+                endW += identifierPart.length;
+            }
             var word = source.slice(i, endW);
             if (PYTHON_KEYWORDS.has(word)) {
                 tokens.push({ type: 'keyword', value: word });
@@ -163,9 +191,12 @@ function tokenize(source, knownNames) {
             continue;
         }
 
-        var endT = i + 1;
-        while (endT < len && !/[a-zA-Z_0-9#"'@.fFbBrRuU]/.test(source[endT]) && source[endT] !== '.') {
-            endT++;
+        var firstTextPoint = codePointAtUtf16(source, i);
+        var endT = i + firstTextPoint.length;
+        while (endT < len) {
+            var nextTextPoint = codePointAtUtf16(source, endT);
+            if (isPythonIdentifierStart(nextTextPoint) || /[0-9#"'@.]/.test(nextTextPoint)) break;
+            endT += nextTextPoint.length;
         }
         tokens.push({ type: 'text', value: source.slice(i, endT) });
         i = endT;
@@ -185,6 +216,619 @@ function attrEscape(text) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+}
+
+// Rich notebook output and pre-rendered Markdown originate in notebook files or
+// kernel messages. They must never be assigned to a live DOM node unchecked:
+// inline event handlers would otherwise run in the same page as kotlinBridge.
+const SAFE_HTML_TAGS = new Set([
+    'a', 'b', 'blockquote', 'br', 'caption', 'code', 'col', 'colgroup',
+    'dd', 'del', 'details', 'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3',
+    'h4', 'h5', 'h6', 'hr', 'i', 'img', 'ins', 'kbd', 'li', 'mark',
+    'ol', 'p', 'pre', 's', 'samp', 'small', 'span', 'strong', 'sub',
+    'summary', 'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead',
+    'tr', 'u', 'ul', 'var',
+    // A deliberately small, non-interactive SVG subset for saved plot output.
+    'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline',
+    'polygon', 'text', 'tspan', 'defs', 'clippath', 'mask',
+    'lineargradient', 'radialgradient', 'stop', 'title', 'desc'
+]);
+
+const DROP_HTML_TAGS = new Set([
+    'script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed',
+    'applet', 'base', 'link', 'meta', 'form', 'input', 'button', 'select',
+    'option', 'textarea', 'video', 'audio', 'source', 'track', 'foreignobject',
+    'animate', 'animatemotion', 'animatetransform', 'set', 'use'
+]);
+
+const SAFE_HTML_CLASSES = new Set([
+    'output-stream', 'output-error', 'output-html', 'output-image', 'dataframe'
+]);
+
+const SAFE_SVG_ATTRS = new Set([
+    'viewbox', 'preserveaspectratio', 'width', 'height', 'x', 'y', 'x1',
+    'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'd', 'points',
+    'transform', 'fill', 'fill-opacity', 'fill-rule', 'stroke',
+    'stroke-width', 'stroke-opacity', 'stroke-linecap', 'stroke-linejoin',
+    'stroke-dasharray', 'stroke-dashoffset', 'opacity', 'font-family',
+    'font-size', 'font-weight', 'text-anchor', 'dominant-baseline',
+    'offset', 'stop-color', 'stop-opacity', 'gradientunits',
+    'gradienttransform', 'spreadmethod', 'clip-path', 'mask'
+]);
+
+function isSafeLinkUrl(value) {
+    var url = String(value || '').trim();
+    if (!url) return false;
+    if (url.charAt(0) === '#') return true;
+    try {
+        var parsed = new URL(url, 'https://notebook.invalid/');
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:' ||
+            parsed.protocol === 'mailto:';
+    } catch (e) {
+        return false;
+    }
+}
+
+function isSafeImageUrl(value) {
+    var url = String(value || '').trim();
+    if (/^data:image\/(?:png|jpe?g|gif|webp|svg\+xml);base64,[a-z0-9+/=\s]+$/i.test(url)) {
+        return true;
+    }
+    try {
+        var parsed = new URL(url, 'https://notebook.invalid/');
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch (e) {
+        return false;
+    }
+}
+
+function sanitizeHtmlFragment(html) {
+    var template = document.createElement('template');
+    template.innerHTML = String(html || '');
+
+    function clean(parent) {
+        var children = Array.from(parent.childNodes);
+        for (var i = 0; i < children.length; i++) {
+            var node = children[i];
+            if (node.nodeType === Node.COMMENT_NODE) {
+                node.remove();
+                continue;
+            }
+            if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+            var tag = (node.localName || '').toLowerCase();
+            if (DROP_HTML_TAGS.has(tag)) {
+                node.remove();
+                continue;
+            }
+            if (!SAFE_HTML_TAGS.has(tag)) {
+                clean(node);
+                node.replaceWith.apply(node, Array.from(node.childNodes));
+                continue;
+            }
+
+            var isSvg = node.namespaceURI === 'http://www.w3.org/2000/svg';
+            var attrs = Array.from(node.attributes);
+            for (var ai = 0; ai < attrs.length; ai++) {
+                var attr = attrs[ai];
+                var name = attr.name.toLowerCase();
+                var keep = false;
+
+                if (name === 'class') {
+                    var safeClasses = attr.value.split(/\s+/).filter(function(c) {
+                        return SAFE_HTML_CLASSES.has(c);
+                    });
+                    if (safeClasses.length) node.setAttribute('class', safeClasses.join(' '));
+                    else node.removeAttribute(attr.name);
+                    continue;
+                }
+                if (name.startsWith('on') || name === 'style' || name === 'id' ||
+                    name === 'name' || name === 'srcdoc' || name === 'formaction' ||
+                    name === 'xlink:href') {
+                    node.removeAttribute(attr.name);
+                    continue;
+                }
+
+                if (tag === 'a' && name === 'href') {
+                    keep = isSafeLinkUrl(attr.value);
+                } else if (tag === 'img' && name === 'src') {
+                    keep = isSafeImageUrl(attr.value);
+                } else if (name === 'title' || name === 'aria-label' ||
+                    name === 'aria-hidden') {
+                    keep = true;
+                } else if (tag === 'img' && (name === 'alt' || name === 'width' || name === 'height')) {
+                    keep = true;
+                } else if ((tag === 'td' || tag === 'th') &&
+                    (name === 'colspan' || name === 'rowspan' || name === 'scope')) {
+                    keep = true;
+                } else if ((tag === 'td' || tag === 'th') && name === 'align') {
+                    var alignment = attr.value.toLowerCase();
+                    keep = alignment === 'left' || alignment === 'center' || alignment === 'right';
+                    if (keep) node.setAttribute(attr.name, alignment);
+                } else if (tag === 'ol' && (name === 'start' || name === 'reversed')) {
+                    keep = true;
+                } else if (tag === 'li' && name === 'value') {
+                    keep = true;
+                } else if (tag === 'details' && name === 'open') {
+                    keep = true;
+                } else if (isSvg && SAFE_SVG_ATTRS.has(name)) {
+                    // SVG paint/filter URLs may only reference an element inside the
+                    // same SVG. External URLs are unnecessary for notebook plots.
+                    keep = !/url\s*\(/i.test(attr.value) || /^url\(#[A-Za-z_][\w:.-]*\)$/i.test(attr.value);
+                }
+
+                if (!keep) node.removeAttribute(attr.name);
+            }
+
+            if (tag === 'a' && node.hasAttribute('href')) {
+                node.setAttribute('target', '_blank');
+                node.setAttribute('rel', 'noopener noreferrer');
+            }
+            clean(node);
+        }
+    }
+
+    clean(template.content);
+    return template.content;
+}
+
+function setSanitizedHtml(element, html) {
+    if (!element) return;
+    element.replaceChildren(sanitizeHtmlFragment(html));
+}
+
+function appendSanitizedHtml(element, html) {
+    if (!element) return;
+    element.appendChild(sanitizeHtmlFragment(html));
+}
+
+function parseCellAttachments(value) {
+    if (value == null || value === '') return null;
+    try {
+        var parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function attachmentText(value) {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value) && value.every(function(item) { return typeof item === 'string'; })) {
+        return value.join('');
+    }
+    return null;
+}
+
+function normalizeBase64(value) {
+    var compact = String(value || '').replace(/\s+/g, '');
+    if (!compact || compact.length % 4 === 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) return null;
+    try {
+        atob(compact);
+        return compact;
+    } catch (e) {
+        return null;
+    }
+}
+
+function utf8ToBase64(value) {
+    var bytes = new TextEncoder().encode(value);
+    var binary = '';
+    for (var i = 0; i < bytes.length; i += 0x8000) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(binary);
+}
+
+function base64ToUtf8(value) {
+    try {
+        var binary = atob(value);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch (e) {
+        return null;
+    }
+}
+
+function sanitizeSvgAttachment(value) {
+    var svgText = String(value || '').trim();
+    if (!svgText || /<!doctype|<!entity/i.test(svgText)) return null;
+    try {
+        var parsed = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+        if (parsed.querySelector('parsererror') ||
+            !parsed.documentElement || parsed.documentElement.localName.toLowerCase() !== 'svg') {
+            return null;
+        }
+        var holder = document.createElement('div');
+        holder.appendChild(document.importNode(parsed.documentElement, true));
+        var sanitizedHolder = document.createElement('div');
+        sanitizedHolder.appendChild(sanitizeHtmlFragment(holder.innerHTML));
+        var root = sanitizedHolder.firstElementChild;
+        if (!root || root.localName.toLowerCase() !== 'svg') return null;
+        return root.outerHTML;
+    } catch (e) {
+        return null;
+    }
+}
+
+const ATTACHMENT_IMAGE_MIMES = [
+    'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml'
+];
+
+function resolveAttachmentImageUrl(name, attachments) {
+    if (!attachments || !Object.prototype.hasOwnProperty.call(attachments, name)) return null;
+    var bundle = attachments[name];
+    if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle)) return null;
+
+    for (var i = 0; i < ATTACHMENT_IMAGE_MIMES.length; i++) {
+        var mime = ATTACHMENT_IMAGE_MIMES[i];
+        if (!Object.prototype.hasOwnProperty.call(bundle, mime)) continue;
+        var value = attachmentText(bundle[mime]);
+        if (value == null) continue;
+        if (mime === 'image/svg+xml') {
+            var trimmed = value.trim();
+            var svgText = trimmed.charAt(0) === '<' ? trimmed : null;
+            if (svgText == null) {
+                var encodedSvg = normalizeBase64(trimmed);
+                svgText = encodedSvg == null ? null : base64ToUtf8(encodedSvg);
+            }
+            var safeSvg = svgText == null ? null : sanitizeSvgAttachment(svgText);
+            if (safeSvg != null) return 'data:image/svg+xml;base64,' + utf8ToBase64(safeSvg);
+            continue;
+        }
+        var encoded = normalizeBase64(value);
+        if (encoded != null) return 'data:' + mime + ';base64,' + encoded;
+    }
+    return null;
+}
+
+function markdownDestination(value) {
+    var destination = String(value || '').trim();
+    if (destination.charAt(0) === '<' && destination.charAt(destination.length - 1) === '>') {
+        destination = destination.slice(1, -1);
+    }
+    return destination;
+}
+
+function resolveMarkdownImageUrl(value, attachments) {
+    var destination = markdownDestination(value);
+    if (destination.indexOf('attachment:') === 0) {
+        var encodedName = destination.slice('attachment:'.length);
+        var name;
+        try { name = decodeURIComponent(encodedName); } catch (e) { return null; }
+        return resolveAttachmentImageUrl(name, attachments);
+    }
+    if (isSafeImageUrl(destination) && /^data:image\//i.test(destination)) return destination;
+    try {
+        var parsed = new URL(destination);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? destination : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+const MARKDOWN_WORD_CHAR = /^[\p{L}\p{N}_]$/u;
+
+function codePointBeforeUtf16(text, index) {
+    if (index <= 0) return '';
+    var position = index - 1;
+    var unit = text.charCodeAt(position);
+    if (unit >= 0xDC00 && unit <= 0xDFFF && position > 0) {
+        var previous = text.charCodeAt(position - 1);
+        if (previous >= 0xD800 && previous <= 0xDBFF) position--;
+    }
+    return codePointAtUtf16(text, position);
+}
+
+// A single forward scan avoids the quadratic backtracking of delimiter regexes
+// on large unmatched input. The restricted mode implements CommonMark's rule
+// that underscores inside a Unicode word are literal (foo_bar stays intact).
+function renderDelimitedEmphasis(text, marker, length, intrawordRestricted) {
+    var output = [];
+    var literalStart = 0;
+    var active = null;
+    var delimiter = marker.repeat(length);
+    var i = 0;
+    while (i < text.length) {
+        if (text.substr(i, length) !== delimiter) {
+            i++;
+            continue;
+        }
+
+        if (active) {
+            var beforeClose = codePointBeforeUtf16(text, i);
+            var afterClose = codePointAtUtf16(text, i + length);
+            var canClose = i > active.contentStart && beforeClose && !/\s/u.test(beforeClose) &&
+                (!intrawordRestricted || !MARKDOWN_WORD_CHAR.test(afterClose));
+            if (canClose) {
+                var tag = length === 2 ? 'strong' : 'em';
+                output.push('<' + tag + '>' + text.slice(active.contentStart, i) + '</' + tag + '>');
+                i += length;
+                literalStart = i;
+                active = null;
+                continue;
+            }
+            i++;
+            continue;
+        }
+
+        var beforeOpen = codePointBeforeUtf16(text, i);
+        var afterOpen = codePointAtUtf16(text, i + length);
+        var canOpen = afterOpen && !/\s/u.test(afterOpen) &&
+            (!intrawordRestricted || !MARKDOWN_WORD_CHAR.test(beforeOpen));
+        if (canOpen) {
+            output.push(text.slice(literalStart, i));
+            active = { start: i, contentStart: i + length };
+            i += length;
+        } else {
+            i++;
+        }
+    }
+
+    output.push(active ? text.slice(active.start) : text.slice(literalStart));
+    return output.join('');
+}
+
+function renderEmphasisMarkdown(text) {
+    var escapedMarkers = [];
+    var prepared = String(text || '').replace(/\\([\\*_])/g, function(_all, marker) {
+        var placeholder = '\uE100JP_ESCAPE_' + escapedMarkers.length + '\uE101';
+        escapedMarkers.push(marker);
+        return placeholder;
+    });
+    var html = escapeHtmlJS(prepared);
+    html = renderDelimitedEmphasis(html, '*', 2, false);
+    html = renderDelimitedEmphasis(html, '*', 1, false);
+    html = renderDelimitedEmphasis(html, '_', 2, true);
+    html = renderDelimitedEmphasis(html, '_', 1, true);
+    for (var i = 0; i < escapedMarkers.length; i++) {
+        html = html.split('\uE100JP_ESCAPE_' + i + '\uE101').join(escapeHtmlJS(escapedMarkers[i]));
+    }
+    return html;
+}
+
+function renderInlineMarkdown(text, attachments) {
+    var stashed = [];
+    function stash(html) {
+        var marker = '\uE000JP_INLINE_' + stashed.length + '\uE001';
+        stashed.push(html);
+        return marker;
+    }
+
+    var withPlaceholders = String(text || '').replace(/`([^`]+)`/g, function(_all, code) {
+        return stash('<code>' + escapeHtmlJS(code) + '</code>');
+    });
+    withPlaceholders = withPlaceholders.replace(
+        /!\[([^\]\n]*)\]\(\s*(<[^>\n]+>|[^\s)\n]+)(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)/g,
+        function(all, alt, destination) {
+            var src = resolveMarkdownImageUrl(destination, attachments);
+            if (!src) return stash(escapeHtmlJS(all));
+            return stash('<img src="' + attrEscape(src) + '" alt="' + attrEscape(alt) + '">');
+        }
+    );
+    withPlaceholders = withPlaceholders.replace(
+        /\[([^\]\n]+)\]\(\s*(<[^>\n]+>|[^\s)\n]+)(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)/g,
+        function(all, label, destination) {
+            var href = markdownDestination(destination);
+            if (!isSafeLinkUrl(href)) return stash(escapeHtmlJS(all));
+            return stash('<a href="' + attrEscape(href) + '">' + renderEmphasisMarkdown(label) + '</a>');
+        }
+    );
+
+    var html = renderEmphasisMarkdown(withPlaceholders);
+    // Placeholders may be nested (for example inline code in a link label), so
+    // restore outer fragments first and their earlier inner fragments last.
+    for (var i = stashed.length - 1; i >= 0; i--) {
+        html = html.split('\uE000JP_INLINE_' + i + '\uE001').join(stashed[i]);
+    }
+    return html;
+}
+
+function splitMarkdownTableRow(line) {
+    var input = String(line || '').trim();
+    var cells = [];
+    var current = '';
+    var inCode = false;
+    var sawDelimiter = false;
+    for (var i = 0; i < input.length; i++) {
+        var ch = input.charAt(i);
+        if (ch === '\\' && input.charAt(i + 1) === '|') {
+            current += '|';
+            i++;
+            continue;
+        }
+        if (ch === '`') {
+            inCode = !inCode;
+            current += ch;
+            continue;
+        }
+        if (ch === '|' && !inCode) {
+            cells.push(current.trim());
+            current = '';
+            sawDelimiter = true;
+        } else {
+            current += ch;
+        }
+    }
+    cells.push(current.trim());
+    if (cells.length && cells[0] === '') cells.shift();
+    if (cells.length && cells[cells.length - 1] === '') cells.pop();
+    return sawDelimiter && cells.length ? cells : null;
+}
+
+function markdownTableAlignments(line) {
+    var cells = splitMarkdownTableRow(line);
+    if (!cells) return null;
+    var result = [];
+    for (var i = 0; i < cells.length; i++) {
+        var marker = cells[i].trim();
+        if (!/^:?-{3,}:?$/.test(marker)) return null;
+        var left = marker.charAt(0) === ':';
+        var right = marker.charAt(marker.length - 1) === ':';
+        result.push(left && right ? 'center' : right ? 'right' : left ? 'left' : null);
+    }
+    return result;
+}
+
+function isSetextHeadingText(line) {
+    var text = String(line || '');
+    if (/^\s{4}/.test(text)) return false;
+    if (/^\s{0,3}(?:#{1,6}(?:\s|$)|>|[-*+]\s+|\d+[.)]\s+)/.test(text)) return false;
+    var compact = text.trim().replace(/\s+/g, '');
+    return !/^(?:\*{3,}|-{3,}|_{3,})$/.test(compact);
+}
+
+// Browser-side rendering keeps the hidden display pane current when Markdown
+// edit mode ends. The Kotlin bridge only reports source changes and has no
+// synchronous render response, so all exit paths share this deterministic,
+// sanitizer-safe subset: headings, rules, paragraphs, quotes, flat lists,
+// fences, links/images, emphasis and pipe tables. Nested lists, footnotes and
+// math are deliberately outside this lightweight renderer.
+function renderMarkdownSource(source, attachments) {
+    var lines = String(source || '').replace(/\r\n?/g, '\n').split('\n');
+    var html = '';
+    var paragraph = [];
+    var listItems = [];
+    var listType = null;
+    var listStart = 1;
+    var quoteLines = [];
+    var codeLines = [];
+    var inFence = false;
+
+    function flushParagraph() {
+        if (!paragraph.length) return;
+        html += '<p>' + paragraph.map(function(line) {
+            return renderInlineMarkdown(line, attachments);
+        }).join('<br>') + '</p>';
+        paragraph = [];
+    }
+    function flushList() {
+        if (!listItems.length) return;
+        var start = listType === 'ol' && listStart !== 1 ? ' start="' + listStart + '"' : '';
+        html += '<' + listType + start + '>' + listItems.map(function(item) {
+            return '<li>' + renderInlineMarkdown(item, attachments) + '</li>';
+        }).join('') + '</' + listType + '>';
+        listItems = [];
+        listType = null;
+        listStart = 1;
+    }
+    function flushQuote() {
+        if (!quoteLines.length) return;
+        html += '<blockquote>' + quoteLines.map(function(line) {
+            return renderInlineMarkdown(line, attachments);
+        }).join('<br>') + '</blockquote>';
+        quoteLines = [];
+    }
+    function flushTextBlocks() {
+        flushParagraph();
+        flushList();
+        flushQuote();
+    }
+
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (/^```/.test(line)) {
+            if (inFence) {
+                html += '<pre><code>' + escapeHtmlJS(codeLines.join('\n')) + '</code></pre>';
+                codeLines = [];
+                inFence = false;
+            } else {
+                flushTextBlocks();
+                inFence = true;
+            }
+            continue;
+        }
+        if (inFence) {
+            codeLines.push(line);
+            continue;
+        }
+        if (!line.trim()) {
+            flushTextBlocks();
+            continue;
+        }
+
+        var setext = i + 1 < lines.length
+            ? lines[i + 1].match(/^\s{0,3}(=+|-+)\s*$/)
+            : null;
+        if (setext && isSetextHeadingText(line)) {
+            flushTextBlocks();
+            var setextLevel = setext[1].charAt(0) === '=' ? 1 : 2;
+            html += '<h' + setextLevel + '>' + renderInlineMarkdown(line.trim(), attachments) +
+                '</h' + setextLevel + '>';
+            i++;
+            continue;
+        }
+
+        var tableHeader = splitMarkdownTableRow(line);
+        var tableAlignment = i + 1 < lines.length ? markdownTableAlignments(lines[i + 1]) : null;
+        if (tableHeader && tableAlignment && tableHeader.length === tableAlignment.length) {
+            flushTextBlocks();
+            html += '<table><thead><tr>' + tableHeader.map(function(cellText, column) {
+                var align = tableAlignment[column] ? ' align="' + tableAlignment[column] + '"' : '';
+                return '<th' + align + '>' + renderInlineMarkdown(cellText, attachments) + '</th>';
+            }).join('') + '</tr></thead><tbody>';
+            i += 2;
+            while (i < lines.length) {
+                var row = splitMarkdownTableRow(lines[i]);
+                if (!row) break;
+                while (row.length < tableHeader.length) row.push('');
+                row = row.slice(0, tableHeader.length);
+                html += '<tr>' + row.map(function(cellText, column) {
+                    var align = tableAlignment[column] ? ' align="' + tableAlignment[column] + '"' : '';
+                    return '<td' + align + '>' + renderInlineMarkdown(cellText, attachments) + '</td>';
+                }).join('') + '</tr>';
+                i++;
+            }
+            html += '</tbody></table>';
+            i--;
+            continue;
+        }
+
+        var heading = line.match(/^(#{1,6})\s+(.+)$/);
+        if (heading) {
+            flushTextBlocks();
+            var level = heading[1].length;
+            html += '<h' + level + '>' + renderInlineMarkdown(heading[2], attachments) + '</h' + level + '>';
+            continue;
+        }
+        var rule = line.trim().replace(/\s+/g, '');
+        if (/^(?:\*{3,}|-{3,}|_{3,})$/.test(rule)) {
+            flushTextBlocks();
+            html += '<hr>';
+            continue;
+        }
+        var unorderedList = line.match(/^\s{0,3}[-*+]\s+(.+)$/);
+        var orderedList = line.match(/^\s{0,3}(\d+)[.)]\s+(.+)$/);
+        if (unorderedList || orderedList) {
+            flushParagraph();
+            flushQuote();
+            var nextListType = orderedList ? 'ol' : 'ul';
+            if (listItems.length && listType !== nextListType) flushList();
+            if (!listItems.length) {
+                listType = nextListType;
+                listStart = orderedList ? Number(orderedList[1]) : 1;
+            }
+            listItems.push(orderedList ? orderedList[2] : unorderedList[1]);
+            continue;
+        }
+        var quote = line.match(/^>\s?(.*)$/);
+        if (quote) {
+            flushParagraph();
+            flushList();
+            quoteLines.push(quote[1]);
+            continue;
+        }
+        flushList();
+        flushQuote();
+        paragraph.push(line);
+    }
+
+    if (inFence) {
+        html += '<pre><code>' + escapeHtmlJS(codeLines.join('\n')) + '</code></pre>';
+    }
+    flushTextBlocks();
+    return html;
 }
 
 function diagAt(diags, line, col) {
@@ -426,10 +1070,86 @@ function syncTextareaHeight(cellId) {
     textarea.style.height = h + 'px';
 }
 
+function syncMarkdownHeight(cellId) {
+    var source = document.getElementById('md-source-' + cellId);
+    if (!source) return;
+    source.style.height = 'auto';
+    source.style.height = Math.max(37, source.scrollHeight) + 'px';
+}
+
+// Convert a point in the highlighted <pre> into the UTF-16 offset used by a
+// textarea selection. This keeps the caret under the double-click even though
+// the editable textarea only becomes visible after the event was dispatched.
+function caretRangeAtPoint(e) {
+    if (!e) return null;
+    var pointRange = null;
+    if (document.caretRangeFromPoint) {
+        pointRange = document.caretRangeFromPoint(e.clientX, e.clientY);
+    } else if (document.caretPositionFromPoint) {
+        var pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+        if (pos) {
+            pointRange = document.createRange();
+            pointRange.setStart(pos.offsetNode, pos.offset);
+            pointRange.collapse(true);
+        }
+    }
+    return pointRange;
+}
+
+function textOffsetAtPoint(element, e) {
+    if (!element) return null;
+    var pointRange = caretRangeAtPoint(e);
+    if (!pointRange || !element.contains(pointRange.startContainer)) return null;
+    try {
+        var prefix = document.createRange();
+        prefix.selectNodeContents(element);
+        prefix.setEnd(pointRange.startContainer, pointRange.startOffset);
+        return prefix.toString().length;
+    } catch (err) {
+        return null;
+    }
+}
+
+// Rendered Markdown contains formatting nodes that are absent from its source.
+// Walk its text nodes in source order and locate the clicked node in the raw
+// source, so a double-click on a heading/emphasis/link still lands on that word.
+function sourceOffsetAtPoint(element, source, e) {
+    var pointRange = caretRangeAtPoint(e);
+    if (!element || !pointRange || !element.contains(pointRange.startContainer)) return null;
+    var pointNode = pointRange.startContainer;
+    if (pointNode.nodeType !== Node.TEXT_NODE) {
+        var fallback = textOffsetAtPoint(element, e);
+        return fallback == null ? null : Math.min(fallback, String(source || '').length);
+    }
+
+    var raw = String(source || '');
+    var walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    var searchFrom = 0;
+    var node;
+    while ((node = walker.nextNode())) {
+        var nodeText = node.nodeValue || '';
+        if (!nodeText) continue;
+        var match = raw.indexOf(nodeText, searchFrom);
+        if (node === pointNode) {
+            if (match >= 0) {
+                return Math.min(match + pointRange.startOffset, raw.length);
+            }
+            break;
+        }
+        if (match >= 0) searchFrom = match + nodeText.length;
+    }
+
+    var renderedOffset = textOffsetAtPoint(element, e);
+    return renderedOffset == null ? null : Math.min(renderedOffset, raw.length);
+}
+
 // ── Cell Construction ──
 
-function addCell(id, type, source, outputsHtml, executionCount) {
+function addCell(id, type, source, outputsHtml, executionCount, attachmentsJson) {
     var container = document.getElementById('notebook-container');
+    var parsedAttachments = parseCellAttachments(attachmentsJson);
+    if (parsedAttachments) attachmentsByCell[id] = parsedAttachments;
+    else delete attachmentsByCell[id];
     var cell = document.createElement('div');
     cell.id = 'cell-' + id;
     cell.className = 'cell';
@@ -453,6 +1173,7 @@ function addCell(id, type, source, outputsHtml, executionCount) {
         runBtn.onclick = function(e) {
             e.stopPropagation();
             selectCell(id);
+            if (cell.classList.contains('executing')) return;
             if (kotlinBridge) kotlinBridge.runCell(id);
         };
         header.appendChild(runBtn);
@@ -510,15 +1231,22 @@ function addCell(id, type, source, outputsHtml, executionCount) {
             e.stopPropagation();
             if (cell.classList.contains('executing')) return;
             if ((e.metaKey || e.ctrlKey) && !sourceWrapper.classList.contains('editing')) {
-                var w = wordAtBackdropPoint(backdrop, e);
-                if (w) {
+                var definitionOffset = textOffsetAtPoint(backdrop, e);
+                if (definitionOffset !== null && requestDefinitionAt(id, definitionOffset)) {
                     e.preventDefault();
-                    gotoDefinition(w, id);
                     return;
                 }
             }
             clearUsageHighlight();
-            enterEditMode(id);
+            selectCell(id);
+        };
+
+        sourceWrapper.ondblclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (cell.classList.contains('executing')) return;
+            clearUsageHighlight();
+            enterEditMode(id, textOffsetAtPoint(backdrop, e));
         };
 
         cell.appendChild(sourceWrapper);
@@ -526,28 +1254,45 @@ function addCell(id, type, source, outputsHtml, executionCount) {
         var outputDiv = document.createElement('div');
         outputDiv.className = 'cell-output';
         outputDiv.id = 'output-' + id;
-        outputDiv.innerHTML = outputsHtml || '';
+        setSanitizedHtml(outputDiv, outputsHtml || '');
         cell.appendChild(outputDiv);
     } else {
+        var isRaw = type === 'raw';
         var renderedDiv = document.createElement('div');
-        renderedDiv.className = 'markdown-rendered';
+        renderedDiv.className = isRaw ? 'markdown-rendered raw-rendered' : 'markdown-rendered';
         renderedDiv.id = 'md-rendered-' + id;
-        renderedDiv.innerHTML = source;
+        if (isRaw) {
+            renderedDiv.textContent = source || '';
+        } else {
+            setSanitizedHtml(renderedDiv, renderMarkdownSource(source || '', attachmentsByCell[id]));
+        }
 
         renderedDiv.onclick = function(e) {
             e.stopPropagation();
             if (cell.classList.contains('executing')) return;
             clearUsageHighlight();
-            startEditMarkdown(id);
+            selectCell(id);
+        };
+
+        renderedDiv.ondblclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (cell.classList.contains('executing')) return;
+            clearUsageHighlight();
+            startEditMarkdown(id, sourceOffsetAtPoint(renderedDiv, mdSource.value, e));
         };
 
         cell.appendChild(renderedDiv);
 
-        var mdSourceDiv = document.createElement('div');
-        mdSourceDiv.className = 'markdown-source';
-        mdSourceDiv.id = 'md-source-' + id;
-        mdSourceDiv.contentEditable = 'true';
-        cell.appendChild(mdSourceDiv);
+        var mdSource = document.createElement('textarea');
+        mdSource.className = isRaw ? 'markdown-source raw-source' : 'markdown-source';
+        mdSource.id = 'md-source-' + id;
+        mdSource.spellcheck = false;
+        mdSource.autocomplete = 'off';
+        mdSource.autocorrect = 'off';
+        mdSource.autocapitalize = 'off';
+        mdSource.value = source || '';
+        cell.appendChild(mdSource);
     }
 
     container.appendChild(cell);
@@ -571,16 +1316,11 @@ function exitAllEditModes() {
     }
     var editingMd = document.querySelectorAll('.cell.editing-markdown');
     for (var i = 0; i < editingMd.length; i++) {
-        var cellId = editingMd[i].dataset.cellId;
-        var mdSource = document.getElementById('md-source-' + cellId);
-        if (mdSource && kotlinBridge) {
-            kotlinBridge.cellSourceChanged(cellId, mdSource.textContent);
-        }
-        editingMd[i].classList.remove('editing-markdown');
+        finishMarkdownEdit(editingMd[i].dataset.cellId);
     }
 }
 
-function enterEditMode(id) {
+function enterEditMode(id, caretOffset) {
     exitAllEditModes();
     hideDiagTooltip();
 
@@ -592,10 +1332,18 @@ function enterEditMode(id) {
     if (!sourceWrapper || !textarea || !backdrop) return;
 
     selectCell(id);
+    var rememberedOffset = textarea.selectionStart || 0;
     sourceWrapper.classList.add('editing');
     textarea.value = backdrop.textContent;
     syncTextareaHeight(id);
+    textarea.scrollTop = 0;
+    textarea.scrollLeft = 0;
+    backdrop.scrollTop = 0;
+    backdrop.scrollLeft = 0;
     textarea.focus();
+    var nextOffset = Number.isInteger(caretOffset) ? caretOffset : rememberedOffset;
+    nextOffset = Math.max(0, Math.min(nextOffset, textarea.value.length));
+    textarea.setSelectionRange(nextOffset, nextOffset);
 
     textarea.onkeydown = function(e) {
         if (e.key === 'Tab' && !e.shiftKey) {
@@ -621,8 +1369,7 @@ function enterEditMode(id) {
         }
         if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'b' || e.key === 'B')) {
             e.preventDefault();
-            var bw = wordAtIndex(textarea.value, textarea.selectionStart);
-            if (bw) gotoDefinition(bw, id);
+            requestDefinitionAt(id, textarea.selectionStart);
             return;
         }
         if ((e.metaKey || e.ctrlKey) && e.key === '/') {
@@ -710,8 +1457,7 @@ function enterEditMode(id) {
         if (e.metaKey || e.ctrlKey) {
             e.preventDefault();
             e.stopPropagation();
-            var w = wordAtIndex(textarea.value, textarea.selectionStart);
-            if (w) gotoDefinition(w, id);
+            requestDefinitionAt(id, textarea.selectionStart);
         }
     };
 
@@ -757,7 +1503,7 @@ function moveToNextCell(currentId) {
         scrollToCell(nextId);
         if (nextEl.dataset.cellType === 'code') {
             enterEditMode(nextId);
-        } else if (nextEl.dataset.cellType === 'markdown') {
+        } else if (nextEl.dataset.cellType === 'markdown' || nextEl.dataset.cellType === 'raw') {
             startEditMarkdown(nextId);
         }
     } else {
@@ -786,26 +1532,40 @@ function makeReadOnly(id) {
 
 // ── Markdown Edit Mode ──
 
-function startEditMarkdown(id) {
+function startEditMarkdown(id, caretOffset) {
     exitAllEditModes();
     selectCell(id);
     var cell = document.getElementById('cell-' + id);
     var mdSource = document.getElementById('md-source-' + id);
     if (cell && mdSource) {
+        var rememberedOffset = mdSource.selectionStart || 0;
         cell.classList.add('editing-markdown');
+        syncMarkdownHeight(id);
         mdSource.focus();
+        var nextOffset = Number.isInteger(caretOffset) ? caretOffset : rememberedOffset;
+        nextOffset = Math.max(0, Math.min(nextOffset, mdSource.value.length));
+        mdSource.setSelectionRange(nextOffset, nextOffset);
         mdSource.oninput = function() {
-            if (kotlinBridge) kotlinBridge.cellSourceChanged(id, mdSource.textContent);
+            if (kotlinBridge) kotlinBridge.cellSourceChanged(id, mdSource.value);
+            syncMarkdownHeight(id);
         };
         mdSource.onkeydown = function(e) {
+            if (e.key === 'Tab' && !e.shiftKey) {
+                e.preventDefault();
+                var start = mdSource.selectionStart;
+                var end = mdSource.selectionEnd;
+                mdSource.setRangeText('    ', start, end, 'end');
+                mdSource.dispatchEvent(new Event('input', { bubbles: true }));
+                return;
+            }
             if (e.key === 'Enter' && (e.shiftKey || e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 return;
             }
             if (e.key === 'Escape') {
                 e.preventDefault();
-                if (kotlinBridge) kotlinBridge.cellSourceChanged(id, mdSource.textContent);
-                cell.classList.remove('editing-markdown');
+                finishMarkdownEdit(id);
+                return;
             }
             if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
@@ -816,11 +1576,39 @@ function startEditMarkdown(id) {
     }
 }
 
+function finishMarkdownEdit(id) {
+    var cell = document.getElementById('cell-' + id);
+    var source = document.getElementById('md-source-' + id);
+    var rendered = document.getElementById('md-rendered-' + id);
+    if (!cell || !source) return;
+
+    var text = source.value;
+    if (kotlinBridge) kotlinBridge.cellSourceChanged(id, text);
+    if (rendered) {
+        if (cell.dataset.cellType === 'raw') {
+            rendered.textContent = text;
+        } else {
+            setSanitizedHtml(rendered, renderMarkdownSource(text, attachmentsByCell[id]));
+        }
+    }
+    cell.classList.remove('editing-markdown');
+    source.oninput = null;
+    source.onkeydown = null;
+    source.blur();
+    if (searchState.active) scheduleSearchRefresh();
+}
+
 function stopEditMarkdown(id, renderedHtml) {
     var cell = document.getElementById('cell-' + id);
+    var source = document.getElementById('md-source-' + id);
     var rendered = document.getElementById('md-rendered-' + id);
     if (cell) cell.classList.remove('editing-markdown');
-    if (rendered) rendered.innerHTML = renderedHtml;
+    if (source) {
+        source.oninput = null;
+        source.onkeydown = null;
+        source.blur();
+    }
+    setSanitizedHtml(rendered, renderedHtml);
     if (searchState.active) scheduleSearchRefresh();
 }
 
@@ -830,12 +1618,7 @@ document.addEventListener('mousedown', function(e) {
     for (var i = 0; i < editingCells.length; i++) {
         var cell = editingCells[i];
         if (!cell.contains(e.target)) {
-            var cellId = cell.dataset.cellId;
-            var mdSource = document.getElementById('md-source-' + cellId);
-            if (mdSource && kotlinBridge) {
-                kotlinBridge.cellSourceChanged(cellId, mdSource.textContent);
-            }
-            cell.classList.remove('editing-markdown');
+            finishMarkdownEdit(cell.dataset.cellId);
         }
     }
 });
@@ -1010,6 +1793,7 @@ function removeCell(id) {
     var cell = document.getElementById('cell-' + id);
     if (cell) {
         cell.remove();
+        delete attachmentsByCell[id];
         if (selectedCellId === id) selectedCellId = null;
         rebuildGaps();
         scheduleHighlightAll();
@@ -1026,7 +1810,7 @@ function clearOutputs(id) {
 
 function appendOutput(id, outputHtml) {
     var outputEl = document.getElementById('output-' + id);
-    if (outputEl) outputEl.innerHTML += outputHtml;
+    appendSanitizedHtml(outputEl, outputHtml);
     if (searchState.active) scheduleSearchRefresh();
 }
 
@@ -1038,11 +1822,14 @@ function setExecutionCount(id, count) {
 function setCellExecuting(id, executing) {
     var cell = document.getElementById('cell-' + id);
     if (!cell) return;
+    var runBtn = cell.querySelector('.run-btn');
     if (executing) {
         cell.classList.add('executing');
+        if (runBtn) runBtn.disabled = true;
         if (isEditing(id)) exitEditMode(id);
     } else {
         cell.classList.remove('executing');
+        if (runBtn) runBtn.disabled = false;
     }
 }
 
@@ -1067,18 +1854,22 @@ function scrollToCell(id) {
 
 function updateMarkdownRendered(id, html) {
     var rendered = document.getElementById('md-rendered-' + id);
-    if (rendered) rendered.innerHTML = html;
+    setSanitizedHtml(rendered, html);
     if (searchState.active) scheduleSearchRefresh();
 }
 
 function setMarkdownSource(id, source) {
     var mdSource = document.getElementById('md-source-' + id);
-    if (mdSource) mdSource.textContent = source;
+    if (mdSource) {
+        mdSource.value = source;
+        if (mdSource.closest('.editing-markdown')) syncMarkdownHeight(id);
+    }
 }
 
 function clearNotebook() {
     document.getElementById('notebook-container').innerHTML = '';
     selectedCellId = null;
+    attachmentsByCell = Object.create(null);
 }
 
 function renderNotebookComplete() {
@@ -1090,11 +1881,11 @@ function getSelectedCellId() {
     return selectedCellId;
 }
 
-function insertCellAfter(afterId, newId, type, source, outputsHtml, executionCount) {
+function insertCellAfter(afterId, newId, type, source, outputsHtml, executionCount, attachmentsJson) {
     var container = document.getElementById('notebook-container');
 
     if (!afterId || afterId === '') {
-        addCell(newId, type, source, outputsHtml, executionCount);
+        addCell(newId, type, source, outputsHtml, executionCount, attachmentsJson);
         var newCell = document.getElementById('cell-' + newId);
         if (newCell) {
             var firstCell = container.querySelector('.cell');
@@ -1111,7 +1902,7 @@ function insertCellAfter(afterId, newId, type, source, outputsHtml, executionCou
 
     var afterCell = document.getElementById('cell-' + afterId);
     if (!afterCell) {
-        addCell(newId, type, source, outputsHtml, executionCount);
+        addCell(newId, type, source, outputsHtml, executionCount, attachmentsJson);
         rebuildGaps();
         scheduleHighlightAll();
         selectCell(newId);
@@ -1119,7 +1910,7 @@ function insertCellAfter(afterId, newId, type, source, outputsHtml, executionCou
         return;
     }
 
-    addCell(newId, type, source, outputsHtml, executionCount);
+    addCell(newId, type, source, outputsHtml, executionCount, attachmentsJson);
     var newCellEl = document.getElementById('cell-' + newId);
     if (newCellEl) {
         afterCell.parentNode.insertBefore(newCellEl, afterCell.nextSibling);
@@ -1149,11 +1940,14 @@ function setDiagnostics(json) {
 function wordAtIndex(text, idx) {
     if (idx < 0) idx = 0;
     if (idx > text.length) idx = text.length;
-    var l = idx, r = idx;
-    while (l > 0 && /\w/.test(text[l - 1])) l--;
-    while (r < text.length && /\w/.test(text[r])) r++;
-    var w = text.slice(l, r);
-    if (/^[A-Za-z_]\w*$/.test(w)) return w;
+    var identifiers = /[_\p{ID_Start}][_\p{ID_Continue}]*/gu;
+    var match;
+    while ((match = identifiers.exec(text))) {
+        var start = match.index;
+        var end = start + match[0].length;
+        if (start <= idx && idx <= end) return match[0];
+        if (start > idx) break;
+    }
     return '';
 }
 
@@ -1262,6 +2056,52 @@ function gotoDefinition(name, currentCellId) {
         ta.focus();
     }
     scrollToCell(loc.cellId);
+    highlightAllCells();
+}
+
+/**
+ * Prefer the language-aware Kotlin/Python resolver. The old in-page resolver is
+ * retained only for the standalone HTML test page where no IDE bridge exists.
+ */
+function requestDefinitionAt(cellId, cursorOffsetUtf16) {
+    var source = getCellText(cellId);
+    var name = wordAtIndex(source, cursorOffsetUtf16);
+    if (!name) return false;
+
+    usageHighlightName = name;
+    highlightAllCells();
+    if (kotlinBridge && typeof kotlinBridge.goToDefinition === 'function') {
+        kotlinBridge.goToDefinition(JSON.stringify({
+            requestId: ++definitionRequestCounter,
+            cellId: cellId,
+            cursorOffsetUtf16: cursorOffsetUtf16
+        }));
+    } else {
+        gotoDefinition(name, cellId);
+    }
+    return true;
+}
+
+/** Navigate to a zero-based Unicode code-point position returned by the resolver. */
+function navigateToCellLocation(cellId, line, codePointColumn, symbol) {
+    var cell = document.getElementById('cell-' + cellId);
+    if (!cell || cell.dataset.cellType !== 'code') return;
+    usageHighlightName = symbol || null;
+    enterEditMode(cellId);
+    var textarea = cell.querySelector('.source-input');
+    if (!textarea) return;
+
+    var lines = textarea.value.split('\n');
+    var safeLine = Math.max(0, Math.min(Number(line) || 0, lines.length - 1));
+    var lineStart = 0;
+    for (var i = 0; i < safeLine; i++) lineStart += lines[i].length + 1;
+    var codePoints = Array.from(lines[safeLine] || '');
+    var safeColumn = Math.max(0, Math.min(Number(codePointColumn) || 0, codePoints.length));
+    var utf16Column = codePoints.slice(0, safeColumn).join('').length;
+    var offset = lineStart + utf16Column;
+    textarea.setSelectionRange(offset, offset);
+    textarea.focus();
+    scrollToCell(cellId);
     highlightAllCells();
 }
 
@@ -1852,14 +2692,13 @@ document.addEventListener('keydown', function(e) {
         var cellId = selectedCellId;
         var cell = document.getElementById('cell-' + cellId);
         if (!cell) return;
+        if (cell.classList.contains('executing')) return;
 
         if (isEditing(cellId)) {
             exitEditMode(cellId);
         }
         if (cell.classList.contains('editing-markdown')) {
-            var mdSource = document.getElementById('md-source-' + cellId);
-            if (mdSource && kotlinBridge) kotlinBridge.cellSourceChanged(cellId, mdSource.textContent);
-            cell.classList.remove('editing-markdown');
+            finishMarkdownEdit(cellId);
         }
 
         if (cell.dataset.cellType === 'code' && kotlinBridge) {
@@ -1867,7 +2706,7 @@ document.addEventListener('keydown', function(e) {
             pendingAdvanceCellId = cellId;
             kotlinBridge.runCell(cellId);
         } else {
-            // Markdown has no kernel execution; advance immediately.
+            // Markdown/raw cells have no kernel execution; advance immediately.
             moveToNextCell(cellId);
         }
     }

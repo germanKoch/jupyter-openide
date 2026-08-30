@@ -47,11 +47,11 @@ private fun addCell(e: AnActionEvent, type: CellType) {
     }
 
     notebook.cells.add(insertIndex, newCell)
-    notebook.isDirty = true
 
     if (selectedId != null) {
         panel.insertCellAfter(selectedId, newCell)
     } else {
         panel.addCellToView(newCell)
     }
+    editor.notifyNotebookStructureChanged()
 }

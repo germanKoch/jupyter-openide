@@ -2,275 +2,382 @@ package com.openide.jupyter.model
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.google.gson.JsonArray
 import com.google.gson.JsonElement
+import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import java.util.UUID
 
+/**
+ * Lossless-enough notebook codec.
+ *
+ * The editor owns a small, typed subset of nbformat.  Every parsed object also
+ * retains its original JSON so fields that the editor does not understand
+ * (attachments, widgets metadata, custom MIME data, and future nbformat
+ * extensions) survive an edit/save cycle.
+ */
 object NotebookSerializer {
 
-    private val gson: Gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
+    private val gson: Gson = GsonBuilder()
+        .setPrettyPrinting()
+        .disableHtmlEscaping()
+        // nbformat requires several nullable properties (notably execution_count)
+        // to remain present, and arbitrary metadata/MIME JSON may contain nulls.
+        .serializeNulls()
+        .create()
+    private val validCellId = Regex("^[A-Za-z0-9_-]{1,64}$")
 
     fun deserialize(json: String, filePath: String): Result<Notebook> {
-        if (json.isBlank()) {
-            return Result.success(createDefaultNotebook(filePath))
-        }
-        return try {
-            val parsed = try {
-                JsonParser.parseString(json)
-            } catch (e: Exception) {
-                return Result.success(createDefaultNotebook(filePath))
-            }
-            if (!parsed.isJsonObject) {
-                return Result.success(createDefaultNotebook(filePath))
-            }
-            val root = parsed.asJsonObject
-            val nbformat = root.get("nbformat")?.asInt ?: return Result.failure(
-                IllegalArgumentException("Missing nbformat field")
-            )
-            if (nbformat != 4) {
-                return Result.failure(
-                    IllegalArgumentException("Unsupported nbformat version: $nbformat (only v4 supported)")
-                )
-            }
-            val nbformatMinor = root.get("nbformat_minor")?.asInt ?: 0
-            val metadata = parseMetadata(root.getAsJsonObject("metadata"))
-            val cells = parseCells(root.getAsJsonArray("cells"))
-            Result.success(
-                Notebook(
-                    filePath = filePath,
-                    nbformatVersion = nbformat,
-                    nbformatMinor = nbformatMinor,
-                    metadata = metadata,
-                    cells = cells.toMutableList()
-                )
-            )
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
+        if (json.isBlank()) return Result.success(createDefaultNotebook(filePath))
 
-    private fun createDefaultNotebook(filePath: String): Notebook {
-        return Notebook(
-            filePath = filePath,
-            nbformatVersion = 4,
-            nbformatMinor = 5,
-            metadata = NotebookMetadata(
-                kernelSpec = KernelSpec(name = "python3", displayName = "Python 3", language = "python"),
-                languageInfo = LanguageInfo(name = "python", version = "", mimetype = "text/x-python", fileExtension = ".py")
-            ),
-            cells = mutableListOf(Cell(cellType = CellType.CODE))
-        )
+        return runCatching {
+            val parsed = JsonParser.parseString(json)
+            require(parsed.isJsonObject) { "Notebook root must be a JSON object" }
+            val root = parsed.asJsonObject
+
+            val nbformat = requiredInt(root, "nbformat")
+            require(nbformat == 4) {
+                "Unsupported nbformat version: $nbformat (only v4 supported)"
+            }
+            val nbformatMinor = optionalInt(root, "nbformat_minor") ?: 0
+            val metadata = parseMetadata(optionalObject(root, "metadata"))
+            val cellsElement = root.get("cells")
+                ?: throw IllegalArgumentException("Missing cells field")
+            require(cellsElement.isJsonArray) { "Notebook cells must be an array" }
+            val cells = parseCells(cellsElement.asJsonArray)
+
+            Notebook(
+                filePath = filePath,
+                nbformatVersion = nbformat,
+                nbformatMinor = nbformatMinor,
+                metadata = metadata,
+                cells = cells,
+                originalJson = root.deepCopy()
+            )
+        }
     }
 
     fun serialize(notebook: Notebook): String {
-        val root = JsonObject()
+        val root = notebook.originalJson?.deepCopy() ?: JsonObject()
         root.add("metadata", serializeMetadata(notebook.metadata))
         root.addProperty("nbformat", notebook.nbformatVersion)
-        root.addProperty("nbformat_minor", notebook.nbformatMinor)
+        // Cell ids are part of nbformat starting with 4.5. The editor always
+        // normalizes ids, so an older 4.x notebook must be upgraded on save
+        // rather than emitting ids under an incompatible 4.4 schema.
+        root.addProperty("nbformat_minor", maxOf(notebook.nbformatMinor, 5))
         root.add("cells", serializeCells(notebook.cells))
         return gson.toJson(root)
     }
 
+    private fun createDefaultNotebook(filePath: String): Notebook = Notebook(
+        filePath = filePath,
+        nbformatVersion = 4,
+        nbformatMinor = 5,
+        metadata = NotebookMetadata(
+            kernelSpec = KernelSpec(name = "python3", displayName = "Python 3", language = "python"),
+            languageInfo = LanguageInfo(
+                name = "python",
+                version = "",
+                mimetype = "text/x-python",
+                fileExtension = ".py"
+            )
+        ),
+        cells = mutableListOf(Cell(cellType = CellType.CODE))
+    )
+
     private fun parseMetadata(obj: JsonObject?): NotebookMetadata {
         if (obj == null) return NotebookMetadata()
-        val kernelSpec = obj.getAsJsonObject("kernelspec")?.let { ks ->
+
+        val kernelSpec = optionalObject(obj, "kernelspec")?.let { ks ->
             KernelSpec(
-                name = ks.get("name")?.asString ?: "python3",
-                displayName = ks.get("display_name")?.asString ?: "Python 3",
-                language = ks.get("language")?.asString ?: "python"
+                name = optionalString(ks, "name") ?: "python3",
+                displayName = optionalString(ks, "display_name") ?: "Python 3",
+                language = optionalString(ks, "language")
             )
         }
-        val languageInfo = obj.getAsJsonObject("language_info")?.let { li ->
+        val languageInfo = optionalObject(obj, "language_info")?.let { info ->
             LanguageInfo(
-                name = li.get("name")?.asString ?: "python",
-                version = li.get("version")?.asString ?: "",
-                mimetype = li.get("mimetype")?.asString ?: "text/x-python",
-                fileExtension = li.get("file_extension")?.asString ?: ".py"
+                name = optionalString(info, "name") ?: "python",
+                version = optionalString(info, "version"),
+                mimetype = optionalString(info, "mimetype"),
+                fileExtension = optionalString(info, "file_extension")
             )
         }
-        return NotebookMetadata(kernelSpec, languageInfo)
+        return NotebookMetadata(kernelSpec, languageInfo, obj.deepCopy())
     }
 
-    private fun serializeMetadata(metadata: NotebookMetadata): JsonElement {
-        val obj = JsonObject()
-        metadata.kernelSpec?.let { ks ->
-            val ksObj = JsonObject()
-            ksObj.addProperty("name", ks.name)
-            ksObj.addProperty("display_name", ks.displayName)
-            ksObj.addProperty("language", ks.language)
-            obj.add("kernelspec", ksObj)
-        }
-        metadata.languageInfo?.let { li ->
-            val liObj = JsonObject()
-            liObj.addProperty("name", li.name)
-            liObj.addProperty("version", li.version)
-            liObj.addProperty("mimetype", li.mimetype)
-            liObj.addProperty("file_extension", li.fileExtension)
-            obj.add("language_info", liObj)
-        }
+    private fun serializeMetadata(metadata: NotebookMetadata): JsonObject {
+        val obj = metadata.originalJson?.deepCopy() ?: JsonObject()
+
+        metadata.kernelSpec?.let { kernelSpec ->
+            val kernel = optionalObject(obj, "kernelspec")?.deepCopy() ?: JsonObject()
+            kernel.addProperty("name", kernelSpec.name)
+            kernel.addProperty("display_name", kernelSpec.displayName)
+            // `language` is optional. A parsed null leaves the retained original
+            // JSON untouched, preserving the distinction between absent and null.
+            kernelSpec.language?.let { kernel.addProperty("language", it) }
+            obj.add("kernelspec", kernel)
+        } ?: obj.remove("kernelspec")
+
+        metadata.languageInfo?.let { languageInfo ->
+            val language = optionalObject(obj, "language_info")?.deepCopy() ?: JsonObject()
+            language.addProperty("name", languageInfo.name)
+            // These language_info properties are optional in nbformat. Do not
+            // synthesize Python values when a parsed Julia/R/etc. notebook omitted
+            // them; null keeps an explicit retained null and absence stays absent.
+            languageInfo.version?.let { language.addProperty("version", it) }
+            languageInfo.mimetype?.let { language.addProperty("mimetype", it) }
+            languageInfo.fileExtension?.let { language.addProperty("file_extension", it) }
+            obj.add("language_info", language)
+        } ?: obj.remove("language_info")
+
         return obj
     }
 
-    private fun parseCells(cells: com.google.gson.JsonArray?): List<Cell> {
-        if (cells == null) return emptyList()
-        return cells.mapNotNull { element ->
+    private fun parseCells(cells: JsonArray): MutableList<Cell> {
+        val seenIds = mutableSetOf<String>()
+        return cells.mapIndexed { index, element ->
+            require(element.isJsonObject) { "Cell at index $index must be an object" }
             val obj = element.asJsonObject
-            val cellTypeStr = obj.get("cell_type")?.asString ?: return@mapNotNull null
-            val cellType = when (cellTypeStr) {
+            val cellType = when (requiredString(obj, "cell_type")) {
                 "code" -> CellType.CODE
                 "markdown" -> CellType.MARKDOWN
-                "raw" -> CellType.MARKDOWN
-                else -> return@mapNotNull null
+                "raw" -> CellType.RAW
+                else -> throw IllegalArgumentException("Unsupported cell type at index $index")
             }
-            val source = extractSource(obj.get("source"))
-            val id = obj.get("id")?.asString
-            val executionCount = obj.get("execution_count")?.let {
-                if (it.isJsonNull) null else it.asInt
+            val requestedId = optionalString(obj, "id")
+            val id = if (requestedId != null && validCellId.matches(requestedId) && seenIds.add(requestedId)) {
+                requestedId
+            } else {
+                generateUniqueCellId(seenIds)
             }
+            val metadata = optionalObject(obj, "metadata")?.deepCopy() ?: JsonObject()
             val outputs = if (cellType == CellType.CODE) {
-                parseOutputs(obj.getAsJsonArray("outputs"))
+                parseOutputs(optionalArray(obj, "outputs"), index)
             } else {
                 mutableListOf()
             }
+
             Cell(
-                id = id ?: java.util.UUID.randomUUID().toString(),
+                id = id,
                 cellType = cellType,
-                source = source,
+                source = extractMultilineText(obj.get("source"), "cell[$index].source"),
                 outputs = outputs,
-                executionCount = executionCount
+                executionCount = if (cellType == CellType.CODE) optionalInt(obj, "execution_count") else null,
+                metadata = metadata,
+                // Keep this as raw JSON: attachment bundles may contain future
+                // MIME types, arrays, nested values, or an explicit JSON null.
+                attachments = obj.get("attachments")?.deepCopy(),
+                originalJson = obj.deepCopy()
             )
+        }.toMutableList()
+    }
+
+    private fun generateUniqueCellId(seenIds: MutableSet<String>): String {
+        while (true) {
+            val id = UUID.randomUUID().toString()
+            if (seenIds.add(id)) return id
         }
     }
 
-    private fun extractSource(source: JsonElement?): String {
-        if (source == null) return ""
-        if (source.isJsonArray) {
-            return source.asJsonArray.joinToString("") { it.asString }
-        }
-        return source.asString
-    }
-
-    private fun parseOutputs(outputs: com.google.gson.JsonArray?): MutableList<CellOutput> {
-        if (outputs == null) return mutableListOf()
-        return outputs.mapNotNull { element ->
-            val obj = element.asJsonObject
-            val outputType = when (obj.get("output_type")?.asString) {
-                "stream" -> OutputType.STREAM
-                "execute_result" -> OutputType.EXECUTE_RESULT
-                "display_data" -> OutputType.DISPLAY_DATA
-                "error" -> OutputType.ERROR
-                else -> return@mapNotNull null
+    private fun serializeCells(cells: List<Cell>): JsonArray = JsonArray().also { array ->
+        cells.forEach { cell ->
+            val obj = cell.originalJson?.deepCopy() ?: JsonObject()
+            obj.addProperty("id", cell.id)
+            obj.addProperty(
+                "cell_type",
+                when (cell.cellType) {
+                    CellType.CODE -> "code"
+                    CellType.MARKDOWN -> "markdown"
+                    CellType.RAW -> "raw"
+                }
+            )
+            obj.add("source", serializeMultilineText(cell.source))
+            obj.add("metadata", cell.metadata.deepCopy())
+            if (cell.attachments == null) {
+                obj.remove("attachments")
+            } else {
+                obj.add("attachments", cell.attachments.deepCopy())
             }
-            when (outputType) {
-                OutputType.STREAM -> CellOutput(
-                    outputType = outputType,
-                    text = extractSource(obj.get("text"))
+
+            if (cell.cellType == CellType.CODE) {
+                addNullableInt(obj, "execution_count", cell.executionCount)
+                obj.add("outputs", serializeOutputs(cell.outputs))
+            }
+            array.add(obj)
+        }
+    }
+
+    private fun parseOutputs(outputs: JsonArray?, cellIndex: Int): MutableList<CellOutput> {
+        if (outputs == null) return mutableListOf()
+        return outputs.mapIndexed { outputIndex, element ->
+            require(element.isJsonObject) {
+                "Output $outputIndex in cell $cellIndex must be an object"
+            }
+            val obj = element.asJsonObject
+            when (val type = requiredString(obj, "output_type")) {
+                "stream" -> CellOutput(
+                    outputType = OutputType.STREAM,
+                    text = extractMultilineText(obj.get("text"), "stream.text"),
+                    name = optionalString(obj, "name") ?: "stdout",
+                    originalJson = obj.deepCopy()
                 )
-                OutputType.EXECUTE_RESULT, OutputType.DISPLAY_DATA -> CellOutput(
-                    outputType = outputType,
-                    data = parseDataBundle(obj.getAsJsonObject("data"))
+
+                "execute_result" -> CellOutput(
+                    outputType = OutputType.EXECUTE_RESULT,
+                    data = parseDataBundle(optionalObject(obj, "data")),
+                    executionCount = optionalInt(obj, "execution_count"),
+                    metadata = optionalObject(obj, "metadata")?.deepCopy() ?: JsonObject(),
+                    transientData = optionalObject(obj, "transient")?.deepCopy(),
+                    originalJson = obj.deepCopy()
                 )
-                OutputType.ERROR -> CellOutput(
-                    outputType = outputType,
-                    ename = obj.get("ename")?.asString,
-                    evalue = obj.get("evalue")?.asString,
-                    traceback = obj.getAsJsonArray("traceback")?.map { it.asString }
+
+                "display_data" -> CellOutput(
+                    outputType = OutputType.DISPLAY_DATA,
+                    data = parseDataBundle(optionalObject(obj, "data")),
+                    metadata = optionalObject(obj, "metadata")?.deepCopy() ?: JsonObject(),
+                    transientData = optionalObject(obj, "transient")?.deepCopy(),
+                    originalJson = obj.deepCopy()
+                )
+
+                "error" -> CellOutput(
+                    outputType = OutputType.ERROR,
+                    ename = optionalString(obj, "ename"),
+                    evalue = optionalString(obj, "evalue"),
+                    traceback = optionalArray(obj, "traceback")?.mapIndexed { traceIndex, value ->
+                        require(value.isJsonPrimitive && value.asJsonPrimitive.isString) {
+                            "traceback[$traceIndex] must be a string"
+                        }
+                        value.asString
+                    },
+                    originalJson = obj.deepCopy()
+                )
+
+                else -> throw IllegalArgumentException(
+                    "Unsupported output type '$type' in cell $cellIndex"
                 )
             }
         }.toMutableList()
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun parseDataBundle(data: JsonObject?): Map<String, Any>? {
-        if (data == null) return null
-        val result = mutableMapOf<String, Any>()
-        for ((key, value) in data.entrySet()) {
-            result[key] = when {
-                value.isJsonArray -> value.asJsonArray.joinToString("") { it.asString }
-                value.isJsonPrimitive -> value.asString
-                else -> value.toString()
-            }
-        }
-        return result
-    }
-
-    private fun serializeCells(cells: List<Cell>): com.google.gson.JsonArray {
-        val array = com.google.gson.JsonArray()
-        for (cell in cells) {
-            val obj = JsonObject()
-            obj.addProperty("id", cell.id)
-            obj.addProperty("cell_type", when (cell.cellType) {
-                CellType.CODE -> "code"
-                CellType.MARKDOWN -> "markdown"
-            })
-            obj.add("source", serializeSource(cell.source))
-            obj.add("metadata", gson.toJsonTree(cell.metadata))
-            if (cell.cellType == CellType.CODE) {
-                if (cell.executionCount != null) {
-                    obj.addProperty("execution_count", cell.executionCount)
-                } else {
-                    obj.add("execution_count", com.google.gson.JsonNull.INSTANCE)
-                }
-                obj.add("outputs", serializeOutputs(cell.outputs))
-            }
-            array.add(obj)
-        }
-        return array
-    }
-
-    private fun serializeSource(source: String): com.google.gson.JsonArray {
-        val array = com.google.gson.JsonArray()
-        val lines = source.split("\n")
-        for ((i, line) in lines.withIndex()) {
-            if (i < lines.size - 1) {
-                array.add(line + "\n")
-            } else if (line.isNotEmpty()) {
-                array.add(line)
-            }
-        }
-        return array
-    }
-
-    private fun serializeOutputs(outputs: List<CellOutput>): com.google.gson.JsonArray {
-        val array = com.google.gson.JsonArray()
-        for (output in outputs) {
-            val obj = JsonObject()
+    private fun serializeOutputs(outputs: List<CellOutput>): JsonArray = JsonArray().also { array ->
+        outputs.forEach { output ->
+            val obj = output.originalJson?.deepCopy() ?: JsonObject()
+            // `transient` is explicitly runtime-only in nbformat. Remove it even
+            // when it came from the lossless original JSON retained at parse time.
+            obj.remove("transient")
             when (output.outputType) {
                 OutputType.STREAM -> {
                     obj.addProperty("output_type", "stream")
-                    obj.addProperty("name", "stdout")
-                    obj.addProperty("text", output.text ?: "")
+                    obj.addProperty("name", output.name ?: "stdout")
+                    obj.add("text", serializeMultilineText(output.text.orEmpty()))
                 }
+
                 OutputType.EXECUTE_RESULT -> {
                     obj.addProperty("output_type", "execute_result")
                     obj.add("data", serializeDataBundle(output.data))
-                    obj.add("metadata", JsonObject())
-                    obj.addProperty("execution_count", 0)
+                    obj.add("metadata", output.metadata.deepCopy())
+                    addNullableInt(obj, "execution_count", output.executionCount)
                 }
+
                 OutputType.DISPLAY_DATA -> {
                     obj.addProperty("output_type", "display_data")
                     obj.add("data", serializeDataBundle(output.data))
-                    obj.add("metadata", JsonObject())
+                    obj.add("metadata", output.metadata.deepCopy())
                 }
+
                 OutputType.ERROR -> {
                     obj.addProperty("output_type", "error")
-                    obj.addProperty("ename", output.ename ?: "")
-                    obj.addProperty("evalue", output.evalue ?: "")
-                    val tb = com.google.gson.JsonArray()
-                    output.traceback?.forEach { tb.add(it) }
-                    obj.add("traceback", tb)
+                    obj.addProperty("ename", output.ename.orEmpty())
+                    obj.addProperty("evalue", output.evalue.orEmpty())
+                    obj.add("traceback", JsonArray().also { traceback ->
+                        output.traceback.orEmpty().forEach(traceback::add)
+                    })
                 }
             }
             array.add(obj)
         }
-        return array
     }
 
-    private fun serializeDataBundle(data: Map<String, Any>?): JsonObject {
-        val obj = JsonObject()
-        data?.forEach { (key, value) ->
-            obj.addProperty(key, value.toString())
+    private fun parseDataBundle(data: JsonObject?): Map<String, Any>? {
+        if (data == null) return null
+        return linkedMapOf<String, Any>().also { result ->
+            data.entrySet().forEach { (mime, value) -> result[mime] = value.deepCopy() }
         }
-        return obj
+    }
+
+    private fun serializeDataBundle(data: Map<String, Any>?): JsonObject = JsonObject().also { obj ->
+        data.orEmpty().forEach { (mime, value) ->
+            obj.add(mime, if (value is JsonElement) value.deepCopy() else gson.toJsonTree(value))
+        }
+    }
+
+    private fun extractMultilineText(source: JsonElement?, path: String): String {
+        if (source == null || source.isJsonNull) return ""
+        if (source.isJsonPrimitive && source.asJsonPrimitive.isString) return source.asString
+        require(source.isJsonArray) { "$path must be a string or an array of strings" }
+        return buildString {
+            source.asJsonArray.forEachIndexed { index, element ->
+                require(element.isJsonPrimitive && element.asJsonPrimitive.isString) {
+                    "$path[$index] must be a string"
+                }
+                append(element.asString)
+            }
+        }
+    }
+
+    private fun serializeMultilineText(text: String): JsonArray = JsonArray().also { lines ->
+        if (text.isEmpty()) return@also
+        var start = 0
+        text.forEachIndexed { index, char ->
+            if (char == '\n') {
+                lines.add(text.substring(start, index + 1))
+                start = index + 1
+            }
+        }
+        if (start < text.length) lines.add(text.substring(start))
+    }
+
+    private fun optionalObject(parent: JsonObject, name: String): JsonObject? {
+        val value = parent.get(name) ?: return null
+        if (value.isJsonNull) return null
+        require(value.isJsonObject) { "$name must be an object" }
+        return value.asJsonObject
+    }
+
+    private fun optionalArray(parent: JsonObject, name: String): JsonArray? {
+        val value = parent.get(name) ?: return null
+        if (value.isJsonNull) return null
+        require(value.isJsonArray) { "$name must be an array" }
+        return value.asJsonArray
+    }
+
+    private fun requiredString(parent: JsonObject, name: String): String =
+        optionalString(parent, name) ?: throw IllegalArgumentException("Missing $name field")
+
+    private fun optionalString(parent: JsonObject, name: String): String? {
+        val value = parent.get(name) ?: return null
+        if (value.isJsonNull) return null
+        require(value.isJsonPrimitive && value.asJsonPrimitive.isString) { "$name must be a string" }
+        return value.asString
+    }
+
+    private fun requiredInt(parent: JsonObject, name: String): Int =
+        optionalInt(parent, name) ?: throw IllegalArgumentException("Missing $name field")
+
+    private fun optionalInt(parent: JsonObject, name: String): Int? {
+        val value = parent.get(name) ?: return null
+        if (value.isJsonNull) return null
+        require(value.isJsonPrimitive && value.asJsonPrimitive.isNumber) { "$name must be an integer" }
+        return try {
+            value.asJsonPrimitive.asBigDecimal.toBigIntegerExact().intValueExact()
+        } catch (exception: ArithmeticException) {
+            throw IllegalArgumentException("$name must be an integer", exception)
+        }
+    }
+
+    private fun addNullableInt(parent: JsonObject, name: String, value: Int?) {
+        if (value == null) parent.add(name, JsonNull.INSTANCE) else parent.addProperty(name, value)
     }
 }

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.openide.jupyter"
-version = "0.2.3"
+version = "0.3.0"
 
 repositories {
     mavenCentral()
@@ -23,6 +23,9 @@ dependencies {
     implementation("com.google.code.gson:gson:2.11.0")
 
     testImplementation(kotlin("test"))
+    // IntelliJ's test bootstrap still links a few JUnit 4 rule types even when
+    // the project tests themselves run on JUnit Platform/Jupiter.
+    testImplementation("junit:junit:4.13.2")
 }
 
 java {

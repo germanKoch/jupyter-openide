@@ -1,21 +1,24 @@
 package com.openide.jupyter.model
 
+import com.google.gson.JsonObject
+
 data class KernelSpec(
     val name: String = "python3",
     val displayName: String = "Python 3",
-    val language: String = "python"
+    val language: String? = "python"
 )
 
 data class LanguageInfo(
     val name: String = "python",
-    val version: String = "",
-    val mimetype: String = "text/x-python",
-    val fileExtension: String = ".py"
+    val version: String? = "",
+    val mimetype: String? = "text/x-python",
+    val fileExtension: String? = ".py"
 )
 
 data class NotebookMetadata(
     val kernelSpec: KernelSpec? = null,
-    val languageInfo: LanguageInfo? = null
+    val languageInfo: LanguageInfo? = null,
+    internal val originalJson: JsonObject? = null
 )
 
 data class Notebook(
@@ -24,5 +27,6 @@ data class Notebook(
     val nbformatMinor: Int = 5,
     val metadata: NotebookMetadata = NotebookMetadata(),
     val cells: MutableList<Cell> = mutableListOf(),
-    var isDirty: Boolean = false
+    var isDirty: Boolean = false,
+    internal val originalJson: JsonObject? = null
 )

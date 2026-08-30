@@ -1,5 +1,7 @@
 package com.openide.jupyter.model
 
+import com.google.gson.JsonObject
+
 enum class OutputType {
     STREAM,
     EXECUTE_RESULT,
@@ -13,5 +15,10 @@ data class CellOutput(
     val data: Map<String, Any>? = null,
     val ename: String? = null,
     val evalue: String? = null,
-    val traceback: List<String>? = null
+    val traceback: List<String>? = null,
+    val name: String? = null,
+    val executionCount: Int? = null,
+    val metadata: JsonObject = JsonObject(),
+    val transientData: JsonObject? = null,
+    internal val originalJson: JsonObject? = null
 )

@@ -1,10 +1,13 @@
 package com.openide.jupyter.model
 
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
 import java.util.UUID
 
 enum class CellType {
     CODE,
-    MARKDOWN
+    MARKDOWN,
+    RAW
 }
 
 enum class CellExecutionState {
@@ -20,6 +23,8 @@ data class Cell(
     var source: String = "",
     val outputs: MutableList<CellOutput> = mutableListOf(),
     var executionCount: Int? = null,
-    val metadata: MutableMap<String, Any> = mutableMapOf(),
-    var executionState: CellExecutionState = CellExecutionState.IDLE
+    val metadata: JsonObject = JsonObject(),
+    val attachments: JsonElement? = null,
+    var executionState: CellExecutionState = CellExecutionState.IDLE,
+    internal val originalJson: JsonObject? = null
 )
