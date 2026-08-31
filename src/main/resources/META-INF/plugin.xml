@@ -32,6 +32,7 @@
         <ul>
             <li><b>Kernel connections:</b> start a new IPython kernel or attach to an existing kernel using a Jupyter connection file or manual connection parameters. External kernels are disconnected without being shut down.</li>
             <li><b>Source navigation:</b> <code>Cmd</code>/<code>Ctrl</code>+Click and <code>Cmd</code>/<code>Ctrl</code>+B now open definitions in notebook cells, project files, the Python standard library, and installed packages.</li>
+            <li><b>Toolbar icons:</b> notebook actions now use distinct theme-aware icons with correct active and disabled states instead of identical fallback symbols.</li>
             <li><b>Editor fixes:</b> corrected caret alignment after reopening notebooks, hid the caret outside edit mode, and made cell selection/edit transitions deterministic.</li>
             <li><b>Markdown fixes:</b> repaired edit/preview transitions and rendering for headings, lists, tables, fenced code, links, attachments, and escaped content.</li>
             <li><b>Notebook compatibility:</b> preserve cell metadata, attachments, rich MIME outputs, raw cells, and nullable execution counts during load/save.</li>
@@ -94,43 +95,52 @@
             <action id="jupyter.startKernel"
                     class="com.openide.jupyter.actions.StartKernelAction"
                     text="Connect / Start Kernel"
-                    description="Launch a Jupyter kernel or attach to an existing connection"/>
+                    description="Launch a Jupyter kernel or attach to an existing connection"
+                    icon="AllIcons.Actions.Attach"/>
             <action id="jupyter.stopKernel"
                     class="com.openide.jupyter.actions.StopKernelAction"
                     text="Stop Kernel"
-                    description="Stop the running kernel"/>
+                    description="Stop the running kernel"
+                    icon="AllIcons.Actions.Suspend"/>
             <action id="jupyter.restartKernel"
                     class="com.openide.jupyter.actions.RestartKernelAction"
                     text="Restart Kernel"
-                    description="Restart the kernel"/>
+                    description="Restart the kernel"
+                    icon="AllIcons.Actions.Restart"/>
             <action id="jupyter.interruptKernel"
                     class="com.openide.jupyter.actions.InterruptKernelAction"
                     text="Interrupt"
-                    description="Interrupt current execution"/>
+                    description="Interrupt current execution"
+                    icon="AllIcons.Actions.Pause"/>
             <separator/>
             <action id="jupyter.runCell"
                     class="com.openide.jupyter.actions.RunCellAction"
                     text="Run Cell"
-                    description="Execute the current cell"/>
+                    description="Execute the current cell"
+                    icon="AllIcons.Actions.Execute"/>
             <action id="jupyter.runAllCells"
                     class="com.openide.jupyter.actions.RunAllCellsAction"
                     text="Run All"
-                    description="Execute all cells sequentially">
+                    description="Execute all cells sequentially"
+                    icon="AllIcons.Actions.RunAll">
                 <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift ENTER"/>
             </action>
             <separator/>
             <action id="jupyter.addCodeCell"
                     class="com.openide.jupyter.actions.AddCellAction"
                     text="Add Code Cell"
-                    description="Insert a new code cell"/>
+                    description="Insert a new code cell"
+                    icon="AllIcons.General.Add"/>
             <action id="jupyter.addMarkdownCell"
                     class="com.openide.jupyter.actions.AddMarkdownCellAction"
                     text="Add Markdown Cell"
-                    description="Insert a new markdown cell"/>
+                    description="Insert a new markdown cell"
+                    icon="AllIcons.Actions.AddFile"/>
             <action id="jupyter.deleteCell"
                     class="com.openide.jupyter.actions.DeleteCellAction"
                     text="Delete Cell"
-                    description="Delete the selected cell"/>
+                    description="Delete the selected cell"
+                    icon="AllIcons.General.Delete"/>
         </group>
 
         <action id="jupyter.findInNotebook"

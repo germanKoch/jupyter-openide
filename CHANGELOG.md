@@ -14,6 +14,7 @@ All notable user-facing changes to the Jupyter Notebook plugin are documented he
 
 ### Fixed
 
+- Replaced the identical oversized fallback symbols in the notebook toolbar with distinct theme-aware icons for every action, including correct active and disabled states.
 - Corrected vertical caret alignment after reopening notebooks, including empty, trailing-newline, wrapped, and multiline cells.
 - Hid the text caret in command mode and made single-click selection, double-click editing, and `Escape` transitions consistent.
 - Repaired Markdown edit/preview behavior and rendering for headings, emphasis, links, inline and fenced code, ordered and unordered lists, block quotes, tables, escaped pipes, horizontal rules, and notebook attachments; unsafe markup and URLs are sanitized.
